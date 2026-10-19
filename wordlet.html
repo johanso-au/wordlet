@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Wordlet</title>
+<style>
+/* ===== THEME TOKENS ===== */
+:root {
+  --bg: #ffffff;
+  --text: #1a1a1b;
+  --header-bg: #ffffff;
+  --header-border: #d3d6da;
+  --tile-bg: #ffffff;
+  --tile-border: #d3d6da;
+  --tile-border-filled: #878a8c;
+  --tile-text: #1a1a1b;
+  --tile-text-revealed: #ffffff;
+  --correct: #6aaa64;
+  --present: #c9b458;
+  --absent: #787c7e;
+  --key-bg: #d3d6da;
+  --key-text: #1a1a1b;
+  --key-special-bg: #878a8c;
+  --modal-bg: #ffffff;
+  --modal-text: #1a1a1b;
+  --modal-border: #d3d6da;
+  --overlay: rgba(0,0,0,0.5);
+  --toast-bg: #1a1a1b;
+  --toast-text: #ffffff;
+  --mode-btn: #e3e3e1;
+  --mode-btn-active: #6aaa64;
+  --mode-btn-text: #1a1a1b;
+  --mode-btn-active-text: #ffffff;
+  --toggle-off: #787c7e;
+  --toggle-on: #6aaa64;
+  --bar-bg: #d3d6da;
+  --bar-fill: #787c7e;
+  --bar-fill-highlight: #6aaa64;
+  --link: #6aaa64;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121213;
+    --text: #ffffff;
+    --header-bg: #121213;
+    --header-border: #3a3a3c;
+    --tile-bg: #121213;
+    --tile-border: #3a3a3c;
+    --tile-border-filled: #565758;
+    --tile-text: #ffffff;
+    --tile-text-revealed: #ffffff;
+    --correct: #538d4e;
+    --present: #b59f3b;
+    --absent: #3a3a3c;
+    --key-bg: #818384;
+    --key-text: #ffffff;
+    --key-special-bg: #565758;
+    --modal-bg: #1a1a1b;
+    --modal-text: #ffffff;
+    --modal-border: #3a3a3c;
+    --toast-bg: #ffffff;
+    --toast-text: #1a1a1b;
+    --mode-btn: #3a3a3c;
+    --mode-btn-active: #538d4e;
+    --mode-btn-text: #ffffff;
+    --mode-btn-active-text: #ffffff;
+    --toggle-off: #565758;
+    --toggle-on: #538d4e;
+    --bar-bg: #3a3a3c;
+    --bar-fill: #565758;
+    --bar-fill-highlight: #538d4e;
+    --link: #538d4e;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #121213;
+  --text: #ffffff;
+  --header-bg: #121213;
+  --header-border: #3a3a3c;
+  --tile-bg: #121213;
+  --tile-border: #3a3a3c;
+  --tile-border-filled: #565758;
+  --tile-text: #ffffff;
+  --tile-text-revealed: #ffffff;
+  --correct: #538d4e;
+  --present: #b59f3b;
+  --absent: #3a3a3c;
+  --key-bg: #818384;
+  --key-text: #ffffff;
+  --key-special-bg: #565758;
+  --modal-bg: #1a1a1b;
+  --modal-text: #ffffff;
+  --modal-border: #3a3a3c;
+  --toast-bg: #ffffff;
+  --toast-text: #1a1a1b;
+  --mode-btn: #3a3a3c;
+  --mode-btn-active: #538d4e;
+  --mode-btn-text: #ffffff;
+  --mode-btn-active-text: #ffffff;
+  --toggle-off: #565758;
+  --toggle-on: #538d4e;
+  --bar-bg: #3a3a3c;
+  --bar-fill: #565758;
+  --bar-fill-highlight: #538d4e;
+  --link: #538d4e;
+}
+
+:root[data-contrast="high"] {
+  --correct: #85c0f9;
+  --present: #f5793a;
+  --mode-btn-active: #85c0f9;
+  --toggle-on: #85c0f9;
+  --bar-fill-highlight: #85c0f9;
+  --link: #85c0f9;
+}
+
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; height: 100dvh;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+
+/* ===== APP LAYOUT ===== */
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 500px;
+  height: 100vh; height: 100dvh;
+  position: relative;
+}
+
+/* ===== HEADER ===== */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 50px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--header-border);
+  padding: 0 16px;
+  background: var(--header-bg);
+}
+header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.hdr-group { display: flex; gap: 4px; min-width: 72px; }
+.hdr-group:first-child { justify-content: flex-start; }
+.hdr-group:last-child { justify-content: flex-end; }
+.icon-btn {
+  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; font-size: 1.2rem; transition: background 0.15s;
+}
+.icon-btn:hover, .icon-btn:focus-visible { background: var(--mode-btn); outline: none; }
+
+/* ===== MODE BAR ===== */
+#mode-bar {
+  display: flex; align-items: center; justify-content: center;
+  height: 40px; flex-shrink: 0; gap: 8px; padding: 4px 16px;
+}
+.mode-btn {
+  padding: 4px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+  background: var(--mode-btn); color: var(--mode-btn-text); transition: all 0.15s;
+}
+.mode-btn.active { background: var(--mode-btn-active); color: var(--mode-btn-active-text); }
+#puzzle-num { font-size: 0.75rem; opacity: 0.7; margin-left: 4px; }
+#new-word-btn {
+  padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+  background: var(--mode-btn-active); color: var(--mode-btn-active-text);
+  display: none;
+}
+#new-word-btn:hover { opacity: 0.85; }
+
+/* ===== BOARD ===== */
+#board-container {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; padding: 0 16px;
+}
+#board {
+  display: grid;
+  grid-template-rows: repeat(6, 1fr);
+  gap: 5px;
+  width: var(--board-w, 330px);
+  height: var(--board-h, 396px);
+}
+.row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+.tile {
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 700; text-transform: uppercase;
+  border: 2px solid var(--tile-border);
+  background: var(--tile-bg); color: var(--tile-text);
+  user-select: none; transition: border-color 0.1s;
+}
+.tile[data-state="tbd"] { border-color: var(--tile-border-filled); }
+.tile[data-state="correct"] { background: var(--correct); color: var(--tile-text-revealed); border-color: var(--correct); }
+.tile[data-state="present"] { background: var(--present); color: var(--tile-text-revealed); border-color: var(--present); }
+.tile[data-state="absent"]  { background: var(--absent);  color: var(--tile-text-revealed); border-color: var(--absent); }
+
+/* ===== TILE ANIMATIONS ===== */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)} }
+  @keyframes flipIn { 0%{transform:rotateX(0)} 100%{transform:rotateX(90deg)} }
+  @keyframes flipOut { 0%{transform:rotateX(90deg)} 100%{transform:rotateX(0)} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+  @keyframes bounce {
+    0%,20%{transform:translateY(0)} 40%{transform:translateY(-30px)}
+    50%{transform:translateY(5px)} 60%{transform:translateY(-15px)}
+    80%{transform:translateY(2px)} 100%{transform:translateY(0)}
+  }
+  .tile.pop { animation: pop 0.1s ease; }
+  .tile.flip-in { animation: flipIn 0.25s ease-in forwards; }
+  .tile.flip-out { animation: flipOut 0.25s ease-out forwards; }
+  .row.shake { animation: shake 0.5s ease; }
+  .tile.bounce { animation: bounce 0.6s ease; }
+}
+
+/* ===== KEYBOARD ===== */
+#keyboard {
+  flex-shrink: 0;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 6px; align-items: center;
+}
+.kb-row { display: flex; gap: 4px; width: 100%; justify-content: center; }
+.key {
+  height: 58px; min-width: 0; flex: 1; max-width: 44px;
+  border-radius: 4px; background: var(--key-bg); color: var(--key-text);
+  font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+.key.wide { flex: 1.5; max-width: 66px; font-size: 0.7rem; }
+.key[data-state="correct"] { background: var(--correct); color: var(--tile-text-revealed); }
+.key[data-state="present"] { background: var(--present); color: var(--tile-text-revealed); }
+.key[data-state="absent"]  { background: var(--absent);  color: var(--tile-text-revealed); }
+
+/* ===== TOASTS ===== */
+#toast-container {
+  position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+  z-index: 1000; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--toast-bg); color: var(--toast-text);
+  padding: 12px 20px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+  opacity: 1; transition: opacity 0.3s;
+  pointer-events: auto;
+}
+.toast.fade { opacity: 0; }
+
+/* ===== MODALS ===== */
+.modal-overlay {
+  position: fixed; inset: 0; background: var(--overlay); z-index: 900;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal {
+  background: var(--modal-bg); color: var(--modal-text);
+  border-radius: 12px; width: calc(100% - 32px); max-width: 460px;
+  max-height: calc(100vh - 60px); max-height: calc(100dvh - 60px);
+  overflow-y: auto; padding: 24px; position: relative;
+  transform: scale(0.95); transition: transform 0.2s;
+}
+.modal-overlay.open .modal { transform: scale(1); }
+.modal-close {
+  position: absolute; top: 12px; right: 12px; font-size: 1.4rem;
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; cursor: pointer;
+}
+.modal-close:hover { background: var(--mode-btn); }
+.modal h2 { font-size: 1.1rem; text-align: center; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em; }
+.modal h3 { font-size: 0.9rem; margin: 12px 0 6px; }
+.modal p { font-size: 0.85rem; line-height: 1.5; margin-bottom: 10px; }
+.modal hr { border: none; border-top: 1px solid var(--modal-border); margin: 16px 0; }
+
+/* Help modal example row */
+.example-row { display: flex; gap: 5px; margin: 8px 0; }
+.example-tile {
+  width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; font-weight: 700; border: 2px solid var(--tile-border);
+  text-transform: uppercase;
+}
+.example-tile.correct { background: var(--correct); color: var(--tile-text-revealed); border-color: var(--correct); }
+.example-tile.present { background: var(--present); color: var(--tile-text-revealed); border-color: var(--present); }
+.example-tile.absent  { background: var(--absent);  color: var(--tile-text-revealed); border-color: var(--absent); }
+
+/* Stats modal */
+.stat-row { display: flex; justify-content: center; gap: 16px; margin-bottom: 16px; }
+.stat-box { text-align: center; }
+.stat-box .num { font-size: 2rem; font-weight: 700; }
+.stat-box .label { font-size: 0.65rem; }
+.dist-row { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 0.8rem; }
+.dist-row .idx { width: 14px; text-align: center; font-weight: 600; }
+.dist-row .bar {
+  flex: 1; min-width: 24px; height: 22px; display: flex; align-items: center;
+  justify-content: flex-end; padding: 0 6px; font-weight: 600; font-size: 0.75rem;
+  background: var(--bar-bg); color: var(--tile-text-revealed); border-radius: 2px;
+}
+.dist-row .bar.filled { background: var(--bar-fill); }
+.dist-row .bar.highlight { background: var(--bar-fill-highlight); }
+.countdown { text-align: center; font-size: 0.85rem; margin-top: 12px; }
+.countdown .timer { font-size: 1.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.share-btn, .action-btn {
+  display: block; margin: 12px auto 0; padding: 12px 24px; border-radius: 24px;
+  background: var(--mode-btn-active); color: var(--mode-btn-active-text);
+  font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.share-btn:hover, .action-btn:hover { opacity: 0.85; }
+.stat-mode-tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; }
+.stat-mode-tab {
+  padding: 4px 14px; border-radius: 16px; font-size: 0.75rem; font-weight: 600;
+  background: var(--mode-btn); color: var(--mode-btn-text); cursor: pointer;
+}
+.stat-mode-tab.active { background: var(--mode-btn-active); color: var(--mode-btn-active-text); }
+
+/* Settings modal */
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid var(--modal-border);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-label { font-size: 0.85rem; font-weight: 500; }
+.setting-desc { font-size: 0.7rem; opacity: 0.7; margin-top: 2px; }
+.toggle {
+  width: 44px; height: 26px; border-radius: 13px; position: relative;
+  background: var(--toggle-off); transition: background 0.2s; cursor: pointer;
+  flex-shrink: 0;
+}
+.toggle.on { background: var(--toggle-on); }
+.toggle::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(18px); }
+.select-wrap { position: relative; }
+.select-wrap select {
+  appearance: none; background: var(--key-bg); color: var(--key-text);
+  border: 1px solid var(--modal-border); border-radius: 6px;
+  padding: 6px 28px 6px 10px; font-size: 0.8rem; cursor: pointer;
+}
+.select-wrap::after {
+  content: '▾'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  pointer-events: none; font-size: 0.7rem;
+}
+.export-area {
+  width: 100%; height: 100px; font-family: monospace; font-size: 0.7rem;
+  background: var(--tile-bg); color: var(--text); border: 1px solid var(--modal-border);
+  border-radius: 6px; padding: 8px; resize: vertical; margin-top: 8px;
+}
+.small-btn {
+  display: inline-block; padding: 6px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;
+  background: var(--key-bg); color: var(--key-text); margin-top: 6px; margin-right: 6px;
+}
+.small-btn:hover { opacity: 0.8; }
+
+/* ===== SR-ONLY ===== */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="hdr-group">
+      <button class="icon-btn" id="help-btn" aria-label="Help" title="How to play">?</button>
+    </div>
+    <h1>Wordlet</h1>
+    <div class="hdr-group">
+      <button class="icon-btn" id="stats-btn" aria-label="Statistics" title="Statistics">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="10" width="4" height="7" rx="0.5" fill="currentColor"/><rect x="7" y="5" width="4" height="12" rx="0.5" fill="currentColor"/><rect x="13" y="1" width="4" height="16" rx="0.5" fill="currentColor"/></svg>
+      </button>
+      <button class="icon-btn" id="settings-btn" aria-label="Settings" title="Settings">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M10 1v2M10 17v2M1 10h2M17 10h2M3.93 3.93l1.41 1.41M14.66 14.66l1.41 1.41M3.93 16.07l1.41-1.41M14.66 5.34l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="mode-bar">
+    <button class="mode-btn active" id="daily-btn">Daily<span id="puzzle-num"></span></button>
+    <button class="mode-btn" id="unlimited-btn">Unlimited</button>
+    <button id="new-word-btn">New Word</button>
+  </div>
+
+  <div id="board-container">
+    <div id="board" role="group" aria-label="Game board"></div>
+  </div>
+
+  <div id="keyboard" role="group" aria-label="Keyboard"></div>
+</div>
+
+<div id="toast-container" aria-live="polite"></div>
+
+<!-- HELP MODAL -->
+<div class="modal-overlay" id="help-overlay">
+  <div class="modal" role="dialog" aria-labelledby="help-title">
+    <button class="modal-close" aria-label="Close">&times;</button>
+    <h2 id="help-title">How to Play</h2>
+    <p>Guess the word in 6 tries.</p>
+    <p>Each guess must be a valid 5-letter word. Press Enter to submit.</p>
+    <p>After each guess, the color of the tiles will change to show how close your guess was.</p>
+    <hr>
+    <h3>Examples</h3>
+    <div class="example-row">
+      <div class="example-tile correct">W</div>
+      <div class="example-tile">E</div>
+      <div class="example-tile">A</div>
+      <div class="example-tile">R</div>
+      <div class="example-tile">Y</div>
+    </div>
+    <p><strong>W</strong> is in the word and in the correct spot.</p>
+    <div class="example-row">
+      <div class="example-tile">P</div>
+      <div class="example-tile present">I</div>
+      <div class="example-tile">L</div>
+      <div class="example-tile">L</div>
+      <div class="example-tile">S</div>
+    </div>
+    <p><strong>I</strong> is in the word but in the wrong spot.</p>
+    <div class="example-row">
+      <div class="example-tile">V</div>
+      <div class="example-tile">A</div>
+      <div class="example-tile">G</div>
+      <div class="example-tile absent">U</div>
+      <div class="example-tile">E</div>
+    </div>
+    <p><strong>U</strong> is not in the word in any spot.</p>
+    <hr>
+    <h3>Modes</h3>
+    <p><strong>Daily:</strong> Everyone gets the same word each day. A new puzzle appears at midnight.</p>
+    <p><strong>Unlimited:</strong> Practice as much as you want with random words.</p>
+    <p><strong>Hard Mode:</strong> Any revealed hints must be used in subsequent guesses. Toggle in Settings (only before the first guess).</p>
+  </div>
+</div>
+
+<!-- STATS MODAL -->
+<div class="modal-overlay" id="stats-overlay">
+  <div class="modal" role="dialog" aria-labelledby="stats-title">
+    <button class="modal-close" aria-label="Close">&times;</button>
+    <h2 id="stats-title">Statistics</h2>
+    <div class="stat-mode-tabs">
+      <button class="stat-mode-tab active" data-smode="daily">Daily</button>
+      <button class="stat-mode-tab" data-smode="unlimited">Unlimited</button>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="num" id="s-played">0</div><div class="label">Played</div></div>
+      <div class="stat-box"><div class="num" id="s-win">0</div><div class="label">Win %</div></div>
+      <div class="stat-box"><div class="num" id="s-streak">0</div><div class="label">Current<br>Streak</div></div>
+      <div class="stat-box"><div class="num" id="s-max">0</div><div class="label">Max<br>Streak</div></div>
+    </div>
+    <h3 style="text-align:center">Guess Distribution</h3>
+    <div id="dist-chart"></div>
+    <div class="countdown" id="countdown-section" style="display:none">
+      <div>Next Wordlet</div>
+      <div class="timer" id="countdown-timer">00:00:00</div>
+    </div>
+    <button class="share-btn" id="share-btn" style="display:none">Share &#x1F4CB;</button>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settings-overlay">
+  <div class="modal" role="dialog" aria-labelledby="settings-title">
+    <button class="modal-close" aria-label="Close">&times;</button>
+    <h2 id="settings-title">Settings</h2>
+    <div class="setting-row">
+      <div><div class="setting-label">Hard Mode</div><div class="setting-desc">Revealed hints must be used in subsequent guesses</div></div>
+      <button class="toggle" id="toggle-hard" role="switch" aria-checked="false" aria-label="Hard Mode"></button>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Theme</div></div>
+      <div class="select-wrap">
+        <select id="theme-select" aria-label="Theme">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">High Contrast</div><div class="setting-desc">Colorblind-friendly palette (orange &amp; blue)</div></div>
+      <button class="toggle" id="toggle-contrast" role="switch" aria-checked="false" aria-label="High Contrast"></button>
+    </div>
+    <hr>
+    <h3>Export / Import Data</h3>
+    <p style="font-size:0.75rem">Copy the JSON below to back up your stats and settings, or paste in data from another device.</p>
+    <textarea class="export-area" id="export-area" spellcheck="false"></textarea>
+    <div>
+      <button class="small-btn" id="export-btn">Export</button>
+      <button class="small-btn" id="import-btn">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- Screen reader announcer -->
+<div id="sr-announcer" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
+<script>
+/* ===========================================================================
+   WORDLET — self-contained offline word game
+   =========================================================================== */
+
+/* ========================================================================
+   SECTION 1: WORD LISTS
+   Paste your own lists here. ANSWERS_STR: answer pool (~2300 common words).
+   EXTRA_STR: additional valid guesses. Both space-separated, uppercase.
+   The code deduplicates and filters non-5-letter entries at load time.
+   ======================================================================== */
+
+const ANSWERS_STR = "\
+ABACK ABASE ABATE ABBEY ABBOT ABHOR ABIDE ABLER ABODE ABORT ABOUT ABOVE ABUSE ABYSS ACIDS ACORN ACRID ACUTE \
+ADAGE ADDED ADEPT ADMIN ADMIT ADOBE ADOPT ADORE ADORN ADULT AEGIS AFIRE AFTER AGAIN AGENT AGING AGILE AGLOW \
+AGONY AGREE AHEAD AIDED AIMED AISLE ALARM ALBUM ALDER ALERT ALGAE ALIBI ALIEN ALIGN ALIKE ALIVE ALLAY ALLEY \
+ALLOT ALLOW ALLOY ALOFT ALONE ALONG ALOOF ALPHA ALTAR ALTER AMASS AMAZE AMBER AMBLE AMEND AMINE AMINO AMISS \
+AMONG AMPLE AMPLY AMUSE ANGEL ANGER ANGLE ANGRY ANGST ANIME ANKLE ANNEX ANNOY ANTIC ANVIL AORTA APART APHID \
+APPLE APPLY APRON APTLY ARBOR ARDOR ARENA ARGUE ARISE ARMOR AROMA AROSE ARRAY ARROW ARSON ARTSY ASCOT ASHEN \
+ASIDE ASSET ATLAS ATOLL ATONE ATTIC AUDIO AUDIT AUGER AUGUR AUNTY AVAIL AVERT AVIAN AVOID AWAIT AWAKE AWARD \
+AWARE AWFUL AWOKE AXIAL AXIOM AZURE \
+BADGE BADLY BAGEL BAGGY BAKER BALMY BANAL BANJO BARGE BARON BASAL BASED BASIC BASIN BASIS BATCH BATON BEACH \
+BEARD BEAST BEGAN BEGIN BEGUN BEING BELLE BELLY BELOW BENCH BERRY BERTH BIBLE BIRCH BIRTH BLACK BLADE \
+BLAME BLAND BLANK BLAST BLAZE BLEAK BLEAT BLEED BLEND BLESS BLIMP BLIND BLINK BLISS BLITZ BLOAT BLOCK BLOKE \
+BLOND BLOOD BLOOM BLOWN BLUFF BLUNT BLURB BLURT BLUSH BOARD BOAST BOBBY BOGUS BONUS BOOTH BOOST BOOZE \
+BORED BORNE BOSOM BOSSY BOTCH BOUND BOXER BRACE BRAID BRAIN BRAKE BRAND BRASS BRAVE BRAVO BRAWL BRAWN BREAD \
+BREAK BREED BRICK BRIDE BRIEF BRINE BRING BRINK BRISK BROAD BROIL BROKE BROOK BROOD BROOM BROTH BROWN BRUSH \
+BRUNT BRUTE BUDDY BUDGE BUGGY BUILD BUILT BULGE BULKY BULLY BUNCH BUNNY BURST BUSHY BUYER BYLAW \
+CABAL CABIN CABLE CADET CAMEL CAMEO CANDY CANNY CANOE CAPER CARGO CAROL CARRY CARVE CATCH CATER CAUSE CEDAR \
+CHAIN CHAIR CHALK CHAMP CHANT CHAOS CHARM CHART CHASE CHEAP CHEAT CHECK CHEEK CHEER CHESS CHEST CHICK CHIEF \
+CHILD CHILI CHILL CHINA CHIRP CHOIR CHORD CHORE CHOSE CHUNK CHURN CIGAR CINCH CIRCA CITED CIVIC CIVIL CLAIM \
+CLAMP CLANG CLANK CLASH CLASP CLASS CLEAN CLEAR CLERK CLICK CLIFF CLIMB CLING CLOAK CLOCK CLONE CLOSE CLOTH \
+CLOUD CLOWN CLUCK CLUMP CLUNG COACH COAST COBRA COCOA COLOR COMET COMIC COMMA CONCH CORAL CORNY COUCH \
+COULD COUNT COUPE COURT COVER COVET CRACK CRAFT CRAMP CRANE CRANK CRASH CRASS CRATE CRAVE CRAWL CRAZE CRAZY \
+CREAK CREAM CREDO CREED CREEK CREEP CREST CRIED CRIME CRISP CROAK CROSS CROWD CROWN CRUDE CRUEL CRUSH CRUST \
+CRYPT CUBIC CUMIN CUPID CURRY CURSE CURVE CYCLE CYNIC \
+DAILY DAIRY DAISY DANCE DANDY DATUM DEALT DEATH DEBIT DEBUT DECAL DECAY DECOR DECOY DECRY DEFER DEITY DELAY \
+DELTA DELVE DEMON DEMUR DENIM DENSE DEPOT DEPTH DERBY DETER DETOX DEUCE DEVIL DIARY DICEY DIGIT DIMLY DINER \
+DINGY DIRTY DISCO DITCH DITTY DIZZY DODGE DODGY DOGMA DOING DOLLY DONOR DONUT DOUBT DOUGH DOWDY DOWEL DRAFT \
+DRAIN DRAKE DRAMA DRANK DRAPE DRAWL DRAWN DREAD DREAM DRESS DRIED DRIFT DRILL DRINK DRIVE DROIT DRONE DROOL \
+DROOP DROVE DROWN DRUNK DRYER DRYLY DULLY DUMMY DUNCE DUSTY DWARF DWELL DWELT DYING \
+EAGER EAGLE EARLY EARTH EASEL EATEN EATER EDICT EIGHT ELBOW ELDER ELECT ELITE ELOPE ELUDE EMBER EMCEE EMPTY \
+ENACT ENDED ENDOW ENEMY ENJOY ENNUI ENSUE ENTER ENTRY ENVOY EPOCH EQUAL EQUIP ERASE ERODE ERROR ERUPT ESSAY \
+ETHER ETHIC ETHOS EVADE EVENT EVERY EVICT EVOKE EXACT EXALT EXERT EXILE EXIST EXPAT EXPEL EXTRA EXUDE EXULT \
+FABLE FACET FAINT FAIRY FAITH FALSE FANCY FATAL FATTY FAULT FAUNA FAVOR FEAST FEIGN FEINT FELLA FELON \
+FEMUR FENCE FERAL FERRY FETCH FEVER FEWER FIBER FIBRE FIELD FIEND FIERY FIFTY FIGHT FILTH FINAL FINCH FIRST \
+FLAME FLANK FLARE FLASH FLASK FLEET FLESH FLICK FLING FLINT FLOAT FLOCK FLOOD FLOOR FLORA FLOSS FLOUR FLOUT \
+FLOWN FLUID FLUKE FLUNG FLUSH FLUTE FOCAL FOCUS FOGGY FOLLY FORAY FORCE FORGE FORGO FORTH FORTY FORUM FOSSE \
+FOUND FOYER FRAIL FRAME FRANK FRAUD FREAK FREED FRESH FRIAR FRIED FRILL FRISK FRONT FROST FROWN FROZE FRUIT \
+FRUMP FULLY FUNGI FUNKY FUNNY FUROR FURRY FUSSY FUZZY \
+GAFFE GAILY GAMMA GAMUT GAUDY GAUGE GAUNT GAUZE GAVEL GENRE GHOST GIANT GIDDY GIRTH GIVEN GIVER GLADE GLAND \
+GLARE GLASS GLAZE GLEAM GLEAN GLIDE GLINT GLOBE GLOOM GLORY GLOSS GLOVE GLYPH GNOME GODLY GOING GOLLY GOOSE \
+GORGE GOUGE GOURD GRACE GRADE GRAFT GRAIL GRAIN GRAND GRANT GRAPE GRAPH GRASP GRASS GRATE GRAVE GRAVY GRAZE \
+GREAT GREED GREEN GREET GRIEF GRILL GRIME GRIMY GRIND GRIPE GROAN GROIN GROOM GROPE GROSS GROUP GROUT GROVE \
+GROWL GROWN GRUEL GRUMP GRUNT GUAVA GUESS GUEST GUIDE GUILD GUILT GUISE GULCH GULLY GUMMY GUSTO GUSTY \
+HABIT HAIKU HAIRY HALVE HANDY HAPPY HARDY HARSH HASTE HASTY HATCH HAUNT HAVEN HAVOC HAZEL HEADY HEART HEAVE \
+HEAVY HEDGE HEFTY HEIST HELIX HELLO HENCE HERON HILLY HINGE HIPPO HITCH HOARD HOBBY HOIST HOLLY HOMER HONEY \
+HONOR HORSE HOTEL HOUND HOUSE HOVER HUMAN HUMID HUMOR HUMPH HUNCH HURRY HUSKY HYENA HYPER \
+ICILY ICING IDEAL IDIOM IMAGE IMBUE IMPEL IMPLY INANE INBOX INCUR INDEX INDIE INEPT INERT INFER INGOT \
+INNER INPUT INTER INTRO IONIC IRONY IVORY ISSUE \
+JAZZY JELLY JENNY JERKY JEWEL JIFFY JOINT JOKER JOLLY JOUST JUDGE JUICE JUICY JUMBO JUMPY JUROR \
+KAYAK KEBAB KHAKI KIOSK KNACK KNEAD KNEEL KNELT KNIFE KNOCK KNOLL KNOWN \
+LABEL LABOR LADEN LADLE LANCE LANKY LAPSE LARGE LARVA LASER LATCH LATER LATHE LATTE LAUGH LAYER LEACH LEAFY \
+LEAKY LEAPT LEARN LEASE LEAST LEAVE LEDGE LEGAL LEGGY LEMON LEVEL LEVER LIBEL LIGHT LIKEN LILAC LIMBO LIMIT \
+LINEN LINER LINGO LIVER LLAMA LOBBY LOCAL LOCUS LODGE LOFTY LOGIC LOGIN LONER LOOSE LORRY LOSER LOTUS LOUSY \
+LOVED LOVER LOWER LOWLY LOYAL LUCID LUCKY LUMEN LUNAR LUNCH LUNGE LURCH LUSTY LYRIC \
+MACHO MACRO MADAM MAFIA MAGIC MAGMA MAJOR MAKER MANGA MANGO MANLY MANOR MAPLE MARCH MARRY MARSH MASON MATCH \
+MATTE MAXIM MAYBE MAYOR MEALY MEATY MEDIA MEDIC MERCY MERGE MERIT MERRY MESSY METAL METER METRO MICRO MIDST \
+MIGHT MIMIC MINCE MINOR MINUS MIRTH MISER MISTY MITER MODEL MODEM MOGUL MOIST MOLDY MONEY MONTH MOODY MOOSE \
+MORAL MORPH MOTEL MOTIF MOTOR MOTTO MOUND MOUNT MOURN MOUSE MOUTH MOVIE MUCKY MUDDY MUMMY MUNCH \
+MURAL MURKY MUSHY MUSIC MUSTY \
+NACHO NAIVE NAMED NANNY NASTY NATAL NAVAL NAVEL NEEDY NERVE NERVY NEVER NEWLY NEXUS NICHE NIGHT NINJA NOBLE \
+NOBLY NOISE NOISY NORTH NOTCH NOTED NOVEL NUDGE NURSE NUTTY NYLON NYMPH \
+OASIS OCCUR OCEAN ODDLY OFFER OFTEN OLIVE OMEGA ONSET OPERA OPTIC ORBIT ORDER ORGAN OTHER OTTER OUGHT OUNCE \
+OUTER OUTDO OVERT OWNER OXIDE OZONE \
+PADDY PAINT PANDA PANEL PANIC PANSY PAPER PARTY PASTA PASTE PATCH PATIO PAUSE PEACE PEACH PEARL PECAN PEDAL \
+PENNY PERCH PERIL PERKY PESTO PETAL PETTY PHASE PHONE PHOTO PIANO PIECE PIETY PIGGY PILOT PINCH PIXEL PIZZA \
+PLACE PLAID PLAIN PLANE PLANK PLANT PLATE PLAZA PLEAD PLEAT PLIED PLIER PLUCK PLUMB PLUME PLUMP PLUNK PLUSH \
+POACH POINT POISE POKER POLAR POLKA POLYP POPPY PORCH PORKY POSER POSIT POSSE POUCH POUND POWER PRANK PRAWN \
+PRESS PRICE PRICK PRIDE PRIME PRINT PRIOR PRISM PRIVY PRIZE PROBE PRONE PROOF PROSE PROUD PROVE PROWL PRUDE \
+PRUNE PSALM PUDGY PULSE PUNCH PUPIL PUPPY PURGE PURSE PUSHY PUTTY PYGMY \
+QUACK QUAFF QUAIL QUALM QUASI QUEEN QUERY QUEST QUEUE QUICK QUIET QUILL QUIRK QUOTA QUOTE QUILT \
+RABBI RABID RADAR RADII RADIO RAINY RAISE RALLY RANCH RANGE RAPID RAVEN RAYON RAZOR REACH REACT READY REALM \
+REBEL RECAP RECUR REFER REIGN RELAX RELAY RELIC REMIT RENEW REPAY REPEL REPLY RERUN RESET RESIN RETRO RETRY \
+REVEL RIDER RIDGE RIFLE RIGID RIGOR RINSE RISEN RISKY RIVAL RIVER RIVET ROACH ROAST ROBIN ROBOT ROCKY RODEO \
+ROGUE ROOST ROUGE ROUGH ROUND ROUTE ROVER ROWDY ROYAL RUGBY RULER RUMBA RUMOR RURAL RUSTY \
+SADLY SAINT SALAD SALON SALSA SALTY SALVE SANDY SAUCE SAUNA SAVOR SCALE SCALP SCAMP SCARE SCARF SCARY \
+SCENE SCENT SCOLD SCONE SCOOP SCOPE SCORE SCORN SCOUT SCOWL SCRAM SCRAP SCREW SCRUB SEDAN SEIZE SENSE SEPIA \
+SERUM SERVE SETUP SEVEN SEVER SEWER SHADE SHADY SHAFT SHAKE SHALE SHALL SHAME SHAPE SHARD SHARE SHARK SHARP \
+SHAVE SHAWL SHEEN SHEEP SHEER SHEET SHELF SHELL SHIFT SHINE SHINY SHIRE SHIRT SHOCK SHORE SHORT SHOUT SHOVE \
+SHOWN SHOWY SHRUB SHRUG SIEGE SIGHT SIGMA SINCE SINEW SIXTH SIXTY SKATE SKIMP SKILL SKULL SKUNK SLACK SLAIN \
+SLANG SLANT SLASH SLATE SLAVE SLEEK SLEEP SLEET SLICE SLIDE SLIME SLIMY SLING SLOPE SLOTH SLUMP SLUNG SMACK \
+SMALL SMART SMASH SMEAR SMELL SMILE SMIRK SMITH SMOCK SMOKE SMOKY SNACK SNAIL SNAKE SNARE SNEAK SNEER SNIDE \
+SNIFF SNORE SNORT SNOUT SNOWY SOAPY SOBER SOLAR SOLID SOLVE SONIC SORRY SOUTH SPACE SPADE SPARE SPARK SPAWN \
+SPEAK SPEAR SPEED SPELL SPEND SPENT SPICE SPICY SPILL SPINE SPITE SPLIT SPOKE SPOON SPORT SPOUT SPRAY \
+SPREE SPRIG SPUNK SPURT SQUAD SQUAT SQUID STACK STAFF STAGE STAIN STAIR STAKE STALE STALK STALL STAMP STAND \
+STANK STARE STARK START STASH STATE STAVE STEAK STEAL STEAM STEEL STEEP STEER STERN STICK STIFF STILL STING \
+STINT STOCK STOIC STOKE STOLE STOMP STONE STOOD STOOL STOOP STORE STORK STORM STORY STOUT STOVE STRAP STRAW \
+STRAY STRIP STRUM STRUT STUCK STUDY STUFF STUMP STUNG STUNK STUNT STYLE SUGAR SUITE SULKY SUNNY SUPER SURGE \
+SURLY SUSHI SWAMP SWARM SWEAR SWEAT SWEEP SWEET SWELL SWEPT SWIFT SWINE SWING SWIPE SWIRL SWOOP SWORE SWORN \
+SWUNG SYRUP \
+TABBY TABLE TABOO TACIT TAFFY TAINT TAKEN TAKER TALLY TALON TANGO TANGY TAPER TARDY TASTE TASTY TAUNT TAXED \
+TEASE TEETH TEMPO TENSE TENTH TEPID TERRA THEFT THEME THICK THIEF THIGH THING THINK THIRD THORN THOSE \
+THREE THREW THROW THUMB THUMP TIARA TIDAL TIGER TIGHT TIMER TIMID TIPSY TIRED TITAN TITLE TOAST TODAY TOKEN \
+TOPIC TORCH TOTAL TOUCH TOUGH TOWEL TOWER TOXIC TRACE TRACK TRADE TRAIL TRAIN TRAIT TRAMP TRASH TRAWL TREAT \
+TREND TRIAD TRIAL TRIBE TRICK TRIED TRITE TROLL TROOP TROPE TROTH TROUT TROVE TRUCK TRUCE TRULY TRUMP TRUNK \
+TRUST TRUTH TUBER TULIP TUMOR TUNER TUNIC TUPLE TUTOR TWANG TWEAK TWEED TWICE TWINE TWIST TYING \
+UDDER ULCER ULTRA UMBRA UNCLE UNDER UNDUE UNFIT UNION UNITE UNITY UNLIT UNTIL UPPER UPSET URBAN USAGE USHER \
+USUAL UTTER \
+VAGUE VALID VALOR VALUE VALVE VAPOR VAULT VEGAN VENUE VERGE VERSE VIGOR VINYL VIOLA VIPER VIRAL VIRUS VISOR \
+VISIT VISTA VITAL VIVID VOCAL VODKA VOGUE VOICE VOTER VOUCH VOWEL VYING \
+WACKY WADER WAGER WAGON WAIST WAIVE WALTZ WATCH WATER WEARY WEAVE WEDGE WEEDY WEIGH WEIRD WHALE WHEAT WHEEL \
+WHERE WHICH WHILE WHINE WHIRL WHITE WHOLE WHOSE WIDEN WIDTH WIELD WINDY WINCE WINCH WITCH WITTY WOMAN WOMEN \
+WOODY WOOZY WORLD WORRY WORSE WORST WORTH WOULD WOUND WRATH WREAK WRECK WREST WRING WRIST WRITE WRONG WROTE \
+WRYLY \
+YACHT YEARN YEAST YIELD YOUNG YOUTH YUMMY \
+ZEBRA ZESTY ZINGY ZIPPY";
+
+const EXTRA_STR = "\
+AAHED AALII ABACI ABAFT ABASE ABASH ABEAM ABETS ABODE ABUTS ACERB ACHED ACIDS ACMES ACNED ACNES ACRES ACTED \
+ADDED ADDER ADDLE ADEPT ADIEU ADMIN AEGIS AFOOT AGAPE AGATE AGAVE AGING AGIOS AGIST AGLOW AGONE AIDER AIMER \
+AIRED AISLE ALDER ALGAE ALIAS ALINE ALLAY ALLEY ALOFT ALOHA ALPHA ALTAR ALTER AMASS AMAZE AMBLE AMEND AMINO \
+AMISS AMONG AMOUR AMPLE AMPLY AMUSE ANGEL ANGER ANGLE ANGRY ANGST ANILE ANION ANISE ANKLE ANNEX ANNOY ANODE \
+ANTIC ANTSY ANVIL AORTA APHID APING APISH APPLE APTLY ARBOR ARDOR ARENA ARETE ARGON ARISE ARMOR AROMA ARSON \
+ARTSY ASHEN ASPEN ASTER ATOLL ATONE ATTIC AUDIO AUDIT AUGER AUGUR AUNTY AURAL AVAIL AVERT AVIAN AVOID AWAIT \
+AWASH AWOKE AXIAL AXIOM AZURE \
+BABEL BADGE BADLY BAGEL BAGGY BAKER BALDY BALKS BALMS BALMY BANAL BANDS BANDY BANJO BANKS BARDS BARED BARGE \
+BARKS BARNS BARON BASAL BASED BASIN BASIS BASIL BATCH BATED BATON BATTY BAWDY BAWLS BAYOU BEACH BEADS BEADY \
+BEAKS BEAMS BEANS BEARD BEARS BEAST BEATS BEECH BEGUN BEING BELAY BELLE BELLY BELOW BENCH BENDS BERRY BERTH \
+BIBLE BIDDY BIKES BILGE BINGE BIRCH BIRDS BIRTH BLACK BLADE BLAME BLAND BLANK BLAST BLAZE BLEAK BLEAT BLEED \
+BLEND BLESS BLIMP BLIND BLINK BLISS BLITZ BLOAT BLOBS BLOCK BLOKE BLOND BLOOD BLOOM BLOWN BLUES BLUFF BLUNT \
+BLURB BLURT BLUSH BOARD BOAST BOATS BOBBY BOGEY BOGUS BOLTS BONDS BONED BONES BONUS BOOBY BOOKS BOOST BOOTH \
+BOOTS BOOTY BOOZE BOOZY BORAX BORED BORNE BOSOM BOSSY BOTCH BOUND BOWED BOWEL BOXER BOYAR BRACE BRAGS BRAID \
+BRAIN BRAKE BRAND BRASS BRAVE BRAVO BRAWL BRAWN BREAD BREAK BREED BRICK BRIDE BRIEF BRINE BRING BRINK BRISK \
+BROAD BROIL BROKE BROOK BROOD BROOM BROTH BROWN BRUSH BRUNT BRUTE BUDDY BUDGE BUGGY BUILD BUILT BULGE BULKY \
+BULLS BULLY BUMPS BUMPY BUNCH BUNKS BUNNY BUOYS BURST BUSHY BUYER BYLAW BYTES \
+CABAL CABIN CABLE CADET CADRE CAMEL CAMEO CAMPS CANAL CANDY CANNY CANOE CAPER CAPON CARDS CARED CARGO CAROL \
+CARRY CARVE CATCH CATER CAUSE CAVES CEDAR CHAIN CHAIR CHALK CHAMP CHANT CHAOS CHAPS CHARD CHARM CHART CHASE \
+CHEAP CHEAT CHECK CHEEK CHEER CHESS CHEST CHICK CHIDE CHIEF CHILD CHILI CHILL CHINA CHINS CHIRP CHOIR CHORD \
+CHORE CHOSE CHUCK CHUMP CHUNK CHURN CIGAR CINCH CIRCA CITED CIVIC CIVIL CLAIM CLAMP CLAMS CLANG CLANK CLASH \
+CLASP CLASS CLAWS CLEAN CLEAR CLERK CLICK CLIFF CLIMB CLING CLINK CLIPS CLOAK CLOCK CLONE CLOSE CLOTH CLOUD \
+CLOUT CLOWN CLUBS CLUCK CLUES CLUMP CLUNG COACH COAST COATS COBRA COCOA COILS COLOR COMBS COMET COMIC COMMA \
+CONCH CONDO CONES CORAL CORDS CORES CORNY COUCH COULD COUNT COUPE COUPS COURT COVER COVET CRACK CRAFT CRAMP \
+CRANE CRANK CRASH CRASS CRATE CRAVE CRAWL CRAZE CRAZY CREAK CREAM CREDO CREED CREEK CREEP CREPT CREST CREWS \
+CRIED CRIME CRIMP CRISP CROAK CROCK CROOK CROPS CROSS CROWD CROWN CRUDE CRUEL CRUSH CRUST CRYPT CUBED CUBES \
+CUBIC CUMIN CUPID CURBS CURDS CURRY CURSE CURVE CYCLE CYNIC \
+DAILY DAIRY DAISY DANCE DANDY DARED DATUM DAWNS DEALT DEATH DEBIT DEBUT DECAL DECAY DECOR DECOY DECRY DEFER \
+DEITY DELAY DELTA DELVE DEMON DEMUR DENIM DENSE DEPOT DEPTH DERBY DETER DETOX DEUCE DEVIL DIARY DICEY DIGIT \
+DIMLY DINER DINES DINGY DIRTY DISCO DITCH DITTY DITTO DIZZY DOCKS DODGE DODGY DOGMA DOING DOLLY DONEE DONOR \
+DONUT DOUBT DOUGH DOWDY DOWEL DOWNS DOZED DOZEN DRAFT DRAIN DRAKE DRAMA DRANK DRAPE DRAWL DRAWN DREAD DREAM \
+DRESS DRIED DRIFT DRILL DRINK DRIVE DROIT DRONE DROOL DROOP DROPS DROSS DROVE DROWN DRUGS DRUMS DRUNK DRYER \
+DRYLY DUALS DUCKS DUELS DUETS DULLY DUMMY DUMPS DUMPY DUNCE DUNES DUNKS DUPED DUSTY DUTCH DUVET DWARF DWELL \
+DWELT DYING \
+EAGER EAGLE EARLY EARTH EASEL EATEN EATER EAVES EBBED EBONY EDGED EDGES EDICT EERIE EIGHT EJECT ELBOW ELDER \
+ELECT ELITE ELOPE ELUDE ELVES EMBED EMBER EMCEE EMITS EMPTY ENACT ENDED ENDOW ENEMY ENJOY ENNUI ENSUE ENTER \
+ENTRY ENVOY EPOCH EPOXY EQUAL EQUIP ERASE ERODE ERROR ERUPT ESSAY ETHER ETHIC ETHOS EVADE EVENT EVERY EVICT \
+EVOKE EXACT EXALT EXAMS EXCEL EXERT EXILE EXIST EXPAT EXPEL EXTRA EXUDE EXULT \
+FABLE FACED FACET FAILS FAINT FAIRY FAITH FALSE FAMED FANCY FANGS FARCE FARED FATAL FATTY FAULT FAUNA \
+FAVOR FEAST FEATS FEEDS FEIGN FEINT FELLA FELON FEMUR FENCE FERAL FERNS FERRY FETCH FETAL FETID FEUD FEVER \
+FEWER FIBER FIBRE FIELD FIEND FIERY FIFTY FIGHT FILED FILTH FINAL FINCH FINDS FIRED FIRES FIRMS FIRST FIXED \
+FIZZY FJORD FLACK FLAGS FLAIR FLAKE FLAKY FLAME FLANK FLARE FLASH FLASK FLATS FLAWS FLEET FLESH FLICK FLIER \
+FLIES FLING FLINT FLIPS FLOAT FLOCK FLOOD FLOOR FLORA FLOSS FLOUR FLOUT FLOWN FLUID FLUKE FLUNG FLUSH FLUTE \
+FOCAL FOCUS FOGGY FOIST FOLIO FOLLY FONTS FORAY FORCE FORGE FORGO FORKS FORMS FORTE FORTH FORTY FORUM FOUND \
+FOYER FRAIL FRAME FRANK FRAUD FRAYS FREAK FREED FRESH FRIAR FRIED FRILL FRISK FRIZZ FROCK FROGS FRONT FROST \
+FROWN FROZE FRUIT FRUMP FULLY FUMED FUNDS FUNGI FUNKY FUNNY FUROR FURRY FUSED FUSSY FUZZY \
+GAFFE GAILY GAINS GAMMA GAMUT GANGS GAPED GAPES GARBS GAUDY GAUGE GAUNT GAUZE GAVEL GAZER GENES GENRE GENUS \
+GHOST GIANT GIDDY GIFTS GILLS GIRLS GIRTH GIVEN GIVER GIZMO GLADE GLAND GLARE GLASS GLAZE GLEAM GLEAN GLIDE \
+GLINT GLOBE GLOOM GLORY GLOSS GLOVE GLYPH GNASH GNOME GOADS GODLY GOING GOLLY GOOFS GOOFY GOOSE GORGE GOUGE \
+GOURD GRACE GRADE GRAFT GRAIL GRAIN GRAND GRANT GRAPE GRAPH GRASP GRASS GRATE GRAVE GRAVY GRAZE GREAT GREED \
+GREEN GREET GRIEF GRILL GRIME GRIMY GRIND GRIPE GRITS GROAN GROIN GROOM GROPE GROSS GROUP GROUT GROVE GROWL \
+GROWN GRUBS GRUEL GRUFF GRUMP GRUNT GUAVA GUESS GUEST GUIDE GUILD GUILT GUISE GULCH GULLS GULLY GUMMY GUSTS \
+GUSTO GUSTY GUTSY \
+HABIT HAIKU HAIRY HALTS HALVE HANDS HANDY HANGS HAPPY HARDY HAREM HARSH HASTE HASTY HATCH HATED HAUNT HAVEN \
+HAVOC HAZEL HEADS HEADY HEALS HEAPS HEARD HEART HEAVE HEAVY HEDGE HEEDS HEFTY HEIRS HEIST HELIX HELLO HENCE \
+HERON HERDS HILLY HINGE HINTS HIPPO HIRED HITCH HOARD HOBBY HOIST HOLDS HOLLY HOMER HOMES HONEY HONOR HOODS \
+HOOKS HOOPS HORSE HOTEL HOUND HOUSE HOVER HOWLS HUMAN HUMID HUMOR HUMPH HUMPS HUNCH HUNKY HUNTS HURRY HUSKY \
+HYENA HYPER HYPOS \
+ICILY ICING IDEAL IDIOM IDIOT IDLED IDLES IMAGE IMBUE IMPEL IMPLY INANE INBOX INCUR INDEX INDIE INEPT INERT \
+INFER INGOT INKED INLET INNER INPUT INTER INTRO IONIC IRKED IRONY IVORY ISSUE \
+JACKS JADED JAILS JAZZY JEANS JELLY JENNY JERKS JERKY JEWEL JIFFY JILTS JIMMY JOINS JOINT JOKER JOLLY JOUST \
+JUDGE JUICE JUICY JUMBO JUMPS JUMPY JUNCO JUROR \
+KARMA KAYAK KEBAB KEELS KEEPS KHAKI KICKS KINKY KIOSK KNACK KNEAD KNEEL KNELT KNIFE KNITS KNOBS KNOCK KNOLL \
+KNOTS KNOWN \
+LABEL LABOR LACED LADEN LADLE LANCE LANDS LANES LANKY LAPSE LARGE LARVA LASER LATCH LATER LATHE LATTE LAUGH \
+LAWNS LAYER LEACH LEADS LEAFY LEAKS LEAKY LEAPT LEARN LEASE LEAST LEAVE LEDGE LEGAL LEGGY LEMON LENDS LEVEL \
+LEVER LICKS LIFTS LIGHT LIKED LIKEN LILAC LIMBO LIMBS LIMIT LIMPS LINEN LINER LINGO LIONS LISPS LITER LIVED \
+LIVER LLAMA LOADS LOAMY LOANS LOBBY LOCAL LOCKS LOCUS LODGE LOFTY LOGIC LOGIN LONER LOOKS LOOMS LOOPS LOOSE \
+LORRY LOSER LOTUS LOUSY LOVED LOVER LOWER LOWLY LOYAL LUCID LUCKY LUMEN LUMPS LUMPY LUNAR LUNCH LUNGE LURCH \
+LURED LURKS LUSTY LYRIC \
+MACHO MACRO MADAM MAFIA MAGIC MAGMA MAGNA MAIDS MAJOR MAKER MALES MALLS MANGA MANGO MANLY MANOR MAPLE MARCH \
+MARKS MARRY MARSH MASON MATCH MATED MATHS MATTE MAXIM MAYBE MAYOR MEALY MEATY MEDIA MEDIC MELDS MELON MERCY \
+MERGE MERIT MERRY MESSY METAL METER METRO MICRO MIDST MIGHT MILES MIMIC MINCE MINDS MINED MINOR MINUS MIRTH \
+MISER MISTY MITER MIXED MIXER MODEL MODEM MOGUL MOIST MOLDY MOLTS MONEY MONTH MOODS MOODY MOOSE MORAL MORON \
+MORPH MOTEL MOTHS MOTIF MOTOR MOTTO MOUND MOUNT MOURN MOUSE MOUTH MOVED MOVER MOVIE MOWED MUCKY MUDDY MUFFS \
+MULCH MUMMY MUNCH MURAL MURKY MUSHY MUSIC MUSTY MYTHS \
+NACHO NAIVE NAMED NANNY NASAL NASTY NATAL NAVAL NAVEL NEEDY NERVE NERVY NEVER NEWLY NEXUS NICHE NIGHT NINJA \
+NOBLE NOBLY NODES NOISE NOISY NOOKS NORTH NOTCH NOTED NOVEL NUDGE NURSE NUTTY NYLON NYMPH \
+OAKEN OASIS OCCUR OCEAN ODDLY OFFER OFTEN OILED OLIVE OMEGA ONSET OOMPH OPENS OPERA OPTED OPTIC ORBIT ORDER \
+ORGAN OTHER OTTER OUGHT OUNCE OUTER OUTDO OVALS OVERT OWNED OWNER OXIDE OZONE \
+PACED PACKS PADDY PAGES PAILS PAINT PAIRS PALMS PANDA PANEL PANES PANIC PANSY PANTS PAPER PARED PARKS PARTY \
+PASTA PASTE PATCH PATIO PAUSE PAVED PAVER PEACE PEACH PEAKS PEARL PECAN PECKS PEDAL PEEKS PEELS PENNY PERCH \
+PERIL PERKS PERKY PESTO PETAL PETTY PHASE PHONE PHOTO PIANO PICKS PIECE PIETY PIGGY PILED PILOT PINCH PINED \
+PIXEL PIZZA PLACE PLAID PLAIN PLANE PLANK PLANT PLATE PLATS PLAZA PLEAD PLEAT PLIED PLIER PLODS PLOPS PLOWS \
+PLOYS PLUCK PLUGS PLUMB PLUME PLUMP PLUMS PLUNK PLUSH POACH POINT POISE POKER POLAR POLES POLKA POLLS POLYP \
+PONDS POOLS POPPY PORCH PORED PORES PORKY POSER POSIT POSSE POUCH POULT POUND POWER PRANK PRAWN PRAYS PRESS \
+PRICE PRICK PRIDE PRIED PRIME PRINT PRIOR PRISM PRIVY PRIZE PROBE PRODS PRONE PRONG PROOF PROPS PROSE PROUD \
+PROVE PROWL PRUDE PRUNE PSALM PUDGY PUFFS PUFFY PULLS PULPS PULSE PUMPS PUNCH PUPIL PUPPY PURGE PURRS PURSE \
+PUSHY PUTTS PUTTY PYGMY \
+QUACK QUAFF QUAIL QUALM QUASI QUEEN QUERY QUEST QUEUE QUICK QUIET QUILL QUIRK QUOTA QUOTE QUILT \
+RABBI RABID RACED RACKS RADAR RADII RADIO RAIDS RAILS RAINY RAISE RALLY RAMPS RANCH RANGE RANKS RAPID RAVED \
+RAVEN RAYON RAZOR REACH REACT READS READY REALM REAMS REARS REBEL RECAP RECUR REEDS REEFS REEKS REFER REIGN \
+REINS RELAX RELAY RELIC REMIT RENEW RENTS REPAY REPEL REPLY RERUN RESET RESIN RESTS RETRO RETRY REVEL RIDER \
+RIDGE RIFLE RIGID RIGOR RINDS RINGS RINSE RIOTS RIPEN RISEN RISKY RIVAL RIVER RIVET ROACH ROADS ROAMS ROARS \
+ROAST ROBES ROBIN ROBOT ROCKS ROCKY RODEO ROGUE ROLES ROLLS ROMAN ROOFS ROOMS ROOMY ROOST ROOTS ROPED ROSES \
+ROUGE ROUGH ROUND ROUTE ROVER ROWDY ROYAL RUGBY RUINS RULED RULER RUMBA RUMOR RUNGS RURAL RUSTY \
+SADLY SAINT SALAD SALES SALON SALSA SALTY SALVE SANDY SAUCE SAUNA SAVOR SCALE SCALP SCAMP SCARE SCARF SCARY \
+SCENE SCENT SCOLD SCONE SCOOP SCOPE SCORE SCORN SCOUT SCOWL SCRAM SCRAP SCREW SCRUB SEALS SEDAN SEEDS SEEDY \
+SEIZE SENSE SEPIA SERUM SERVE SETUP SEVEN SEVER SEWER SHADE SHADY SHAFT SHAKE SHALE SHALL SHAME SHAPE SHARD \
+SHARE SHARK SHARP SHAVE SHAWL SHEEN SHEEP SHEER SHEET SHELF SHELL SHIFT SHIMS SHINE SHINY SHIPS SHIRE SHIRT \
+SHOCK SHOES SHONE SHOOK SHORE SHORT SHOUT SHOVE SHOWN SHOWS SHOWY SHRUB SHRUG SHUTS SIEGE SIEVE SIGHT SIGMA \
+SIGNS SILKS SILKY SILLY SINCE SINEW SIREN SITES SIXTH SIXTY SIZED SKATE SKIMP SKILL SKULL SKUNK SLACK SLAIN \
+SLAMS SLANG SLANT SLASH SLATE SLAVE SLEEK SLEEP SLEET SLEPT SLICE SLIDE SLIME SLIMY SLING SLINK SLOPE SLOTH \
+SLUMP SLUNG SLUNK SLURP SMACK SMALL SMART SMASH SMEAR SMELL SMILE SMIRK SMITH SMOCK SMOKE SMOKY SNACK SNAGS \
+SNAIL SNAKE SNAPS SNARE SNEAK SNEER SNIDE SNIFF SNORE SNORT SNOUT SNOWY SOAPY SOBER SOCKS SOLAR SOLED SOLID \
+SOLVE SONIC SORRY SORTS SOULS SOUTH SPACE SPADE SPANS SPARE SPARK SPAWN SPEAK SPEAR SPECS SPEED SPELL SPEND \
+SPENT SPICE SPICY SPILL SPINE SPITE SPLIT SPOKE SPOON SPORT SPOTS SPOUT SPRAY SPREE SPRIG SPUNK SPURT SQUAD \
+SQUAT SQUID STACK STAFF STAGE STAIN STAIR STAKE STALE STALK STALL STAMP STAND STANK STARE STARK START STASH \
+STATE STAVE STAYS STEAK STEAL STEAM STEEL STEEP STEER STEMS STERN STEWS STICK STIFF STILL STING STINT STOCK \
+STOIC STOKE STOLE STOMP STONE STOOD STOOL STOOP STORE STORK STORM STORY STOUT STOVE STRAP STRAW STRAY STRIP \
+STRUM STRUT STUCK STUDS STUDY STUFF STUMP STUNG STUNK STUNT STYLE SUGAR SUITE SULKS SULKY SUNNY SUPER SURGE \
+SURLY SUSHI SWAMP SWARM SWEAR SWEAT SWEEP SWEET SWELL SWEPT SWIFT SWINE SWING SWIPE SWIRL SWOOP SWORE SWORN \
+SWUNG SYRUP \
+TABBY TABLE TABOO TACIT TAFFY TAILS TAINT TAKEN TAKER TALES TALLY TALON TANGO TANGS TANGY TANKS TAPER TARDY \
+TASTE TASTY TAUNT TAXED TAXES TEACH TEAMS TEARS TEASE TEDDY TEENS TEETH TEMPO TENDS TENSE TENTH TEPID TERMS \
+TERRA THEFT THEME THICK THIEF THIGH THING THINK THIRD THORN THOSE THREE THREW THROW THUDS THUMB THUMP TIARA \
+TIDAL TIDES TIGER TIGHT TILES TILTS TIMER TIMID TINTS TIPSY TIRED TITAN TITLE TOAST TODAY TOKEN TOLLS TOMBS \
+TONES TONIC TOOLS TOPIC TORCH TOTAL TOUCH TOUGH TOURS TOWEL TOWER TOXIC TRACE TRACK TRADE TRAIL TRAIN TRAIT \
+TRAMP TRASH TRAWL TRAYS TREAT TREES TREND TRIAD TRIAL TRIBE TRICK TRIED TRIMS TRITE TROLL TROOP TROPE TROTH \
+TROUT TROVE TRUCK TRUCE TRULY TRUMP TRUNK TRUST TRUTH TUBER TUCKS TULIP TUMOR TUNER TUNES TUNIC TUPLE TURNS \
+TUTOR TWANG TWEAK TWEED TWICE TWIGS TWINE TWIST TYING TYPED TYPOS \
+UDDER ULCER ULTRA UMBRA UNCLE UNDER UNDUE UNFIT UNION UNITE UNITY UNLIT UNTIL UPPER UPSET URBAN USAGE USHER \
+USUAL UTTER \
+VAGUE VALID VALOR VALUE VALVE VAPOR VAULT VEGAN VEILS VEINS VENUE VERBS VERGE VERSE VIGOR VINYL VIOLA VIPER \
+VIRAL VIRUS VISOR VISIT VISTA VITAL VIVID VOCAL VODKA VOGUE VOICE VOTER VOUCH VOWED VOWEL VYING \
+WACKY WADED WADER WAGER WAGON WAIST WAITS WAIVE WAKES WALKS WALLS WALTZ WANDS WANTS WARDS WATCH WATER WAVED \
+WAVES WEARY WEAVE WEDGE WEEDS WEEDY WEIGH WEIRD WHALE WHEAT WHEEL WHERE WHICH WHILE WHINE WHIRL WHISK WHITE \
+WHOLE WHOSE WIDEN WIDTH WIELD WILTS WINCH WINDS WINDY WINCE WINGS WIRED WITCH WITTY WOMAN WOMEN WOODY WOOZY \
+WORDS WORLD WORMS WORRY WORSE WORST WORTH WOULD WOUND WRATH WREAK WRECK WREST WRING WRIST WRITE WRONG WROTE \
+WRYLY \
+YACHT YEARN YEAST YIELD YOUNG YOUTH YUMMY \
+ZEBRA ZESTY ZINGY ZIPPY ZONES \
+\
+AARGH ABACA ABACI ABACK ABAMP ABAND ABASE ABASH ABATE ABBES ABBOT ABEAM ABELE ABETS ABHOR ABIDE ABLED \
+ABLER ABMHO ABODE ABOHM ABORT ABOUT ABOVE ABSIT ABUSE ABUTS ABYSM ABYSS ACARI ACERB ACETA ACHED ACHES \
+ACIDS ACKEE ACMES ACNED ACNES ACORN ACRES ACRID ACTED ACTIN ACUTE ADAGE ADDED ADDER ADDLE ADEEM ADEPT \
+ADIEU ADIOS ADMIT ADMIX ADOBE ADOPT ADORE ADORN ADULT ADUST ADYTA AEGIS AEONS AERIE AFARA AFARS AFOOT \
+AFOUL AFTER AGAIN AGAPE AGARS AGATE AGAVE AGAZE AGENE AGENT AGGER AGGIE AGGRO AGHAS AGILE AGING AGIOS \
+AGISM AGIST AGLEY AGLOW AGMAS AGONE AGONS AGONY AGORA AGREE AGUED AHEAD AHOLD AIDED AIDER AIMED AIMER \
+AINEE AIRED AIRER AISLE AITCH AJIVA AKVIT ALAMO ALARM ALARY ALBUM ALDER ALDOL ALERT ALGAE ALGAL ALGID \
+ALGIN ALGOL ALIAS ALIBI ALIEN ALIGN ALINE ALISO ALIVE ALKYD ALKYL ALLAY ALLEY ALLOD ALLOT ALLOW ALLOY \
+ALLYL ALMAH ALMAS ALMEH ALMES ALMUD ALOES ALOFT ALOHA ALONE ALONG ALOOF ALOUD ALPHA ALTAR ALTER ALTOS \
+ALULA ALUMS ALWAY AMAIN AMASS AMAZE AMBER AMBIT AMBLE AMEBA AMEND AMENT AMINO AMINS AMISS AMITY AMONG \
+AMOUR AMPLE AMPLY AMUCK AMUSE AMYLS ANGEL ANGER ANGLE ANGRY ANGST ANILE ANILS ANIME ANION ANISE ANKER \
+ANKLE ANNAS ANNEX ANNOY ANNUL ANODE ANOLE ANTIC ANTIS ANTSY ANURA ANVIL AORTA APEAK APEEK APERS APHID \
+APHIS APING APISH APNEA APODS APORT APPLE APPLY APRON APSES APTLY AQUAS ARAKS ARBOR ARCED ARDEB ARDOR \
+AREAL ARENA ARETE ARGIL ARGOL ARGON ARGUE ARGUS ARHAT ARISE ARLES ARMED ARMER ARMOR AROID AROMA AROSE \
+ARRAY ARROW ARSES ARSON ARTSY ARUMS ARVAL ARYAN ASCOT ASHEN ASKER ASKEW ASPEN ASSET ATLAS ATOLL ATONE \
+ATONY ATTIC AUDIO AUDIT AUGER AUGHT AUGUR AUNTS AUNTY AURAL AURAR AURES AURIC AVAIL AVANT AVAST AVERT \
+AVIAN AVOID AVOWS AWAIT AWAKE AWARD AWARE AWASH AWFUL AWING AWNED AWOKE AXIAL AXILE AXILS AXIOM AXION \
+AXLED AXLES AXONE AZIDE AZINE AZOIC AZOTE AZURE \
+BAALS BABEL BABES BABKA BABOO BACKS BACON BADGE BADLY BAGEL BAGGY BAHTS BAILS BAIRN BAITS BAKED BAKER \
+BALAS BALDY BALED BALER BALKS BALKY BALLS BALMS BALMY BANAL BANDS BANED BANES BANGS BANJO BANKS BANNS \
+BARBS BARDS BARED BARER BARES BARGE BARKS BARKY BARMS BARMY BARNS BARNY BARON BARRY BASAL BASED BASER \
+BASIN BASIS BASKS BASSI BASSO BASTE BATCH BATED BATES BATHE BATON BATTS BATTY BAULK BAWDS BAWDY BAWLS \
+BAYED BAYOU BEACH BEADS BEADY BEAKS BEAMS BEAMY BEANS BEARD BEARS BEAST BEATS BEAUS BEAUT BEAUX BEBOP \
+BECKS BEDEW BEDIM BEECH BEEFS BEEFY BEEPS BEERS BEERY BEETS BEFOG BEGAN BEGIN BEGOT BEGUN BEING BELAY \
+BELCH BELIE BELLE BELLS BELLY BELOW BELTS BENCH BENDS BENDY BENTS BERGS BERMS BERRY BERTH BERYL BESET \
+BETEL BETHS BEVEL BEZEL BIBLE BICEP BIDDY BIDED BIDER BIKES BILGE BILGY BILKS BILLS BILLY BINDS BINGE \
+BIOME BIPED BIRCH BIRDS BIRLE BIRLS BIRRS BIRTH BISON BITER BITES BITSY BITTS BITTY BLACK BLADE BLAME \
+BLAND BLANK BLARE BLASE BLAST BLATS BLAZE BLEAK BLEAR BLEAT BLEED BLEND BLESS BLIMP BLIMY BLIND BLINI \
+BLINK BLIPS BLISS BLITE BLITZ BLOAT BLOBS BLOCK BLOCS BLOKE BLOND BLOOD BLOOM BLOWN BLOWS BLOWY BLUED \
+BLUER BLUES BLUET BLUEY BLUFF BLUNT BLURB BLURS BLURT BLUSH BOARD BOARS BOAST BOATS BOBBY BOCKS BODED \
+BODES BOGEY BOGGY BOGIE BOGUS BOILS BOLAR BOLAS BOLLS BOLTS BOLUS BOMBS BONDS BONED BONER BONES BONGS \
+BONKS BONNY BONUS BOOBY BOOED BOOKS BOOMS BOOMY BOONS BOORS BOOST BOOTH BOOTS BOOTY BOOZE BOOZY BORAX \
+BORED BORER BORIC BORNE BORON BOSOM BOSSY BOTCH BOTHY BOUND BOUTS BOWED BOWEL BOWER BOWLS BOXED BOXER \
+BOYAR BRACE BRACK BRADS BRAGS BRAID BRAIN BRAKE BRAND BRANT BRASH BRASS BRATS BRAVE BRAVO BRAWL BRAWN \
+BRAYS BRAZE BREAD BREAK BREED BREVE BREWS BRIAR BRIBE BRICK BRIDE BRIEF BRIER BRIGS BRILL BRINE BRING \
+BRINK BRINS BRINY BRISK BROAD BROIL BROKE BROMO BRONC BROOK BROOD BROOM BROTH BROWN BROWS BRUIN BRUIT \
+BRUNT BRUSH BRUTE BUCKS BUDDY BUDGE BUFFS BUFFY BUGGY BUILD BUILT BULGE BULGY BULKS BULKY BULLS BULLY \
+BUMPS BUMPY BUNCH BUNCO BUNDS BUNGS BUNKO BUNKS BUNNY BUNTS BUOYS BURAS BURDS BURGS BURLS BURLY BURNS \
+BURNT BURPS BURRO BURRS BURRY BURST BUSBY BUSHY BUSTS BUSTY BUTCH BUTTE BUTTS BUTYL BUYER BUZZY BYLAW \
+BYRES BYTES BYWAY \
+CABAL CABBY CABIN CABLE CABOT CACAO CACHE CACTI CADDY CADET CADGE CADRE CAFES CAGED CAGER CAGES CAGEY \
+CAIRN CAKED CAKES CALLS CALMS CAMEL CAMEO CAMPO CAMPS CAMPY CANAL CANDY CANED CANER CANES CANNA CANNY \
+CANOE CANON CANTO CAPED CAPER CAPES CAPON CARDS CARED CARER CARES CARGO CAROB CAROL CAROM CARPS CARRY \
+CARTS CARVE CASED CASES CASKS CASTE CATCH CATER CATTY CAULK CAUSE CAVED CAVER CAVES CAVIL CEASE CEDAR \
+CEDED CEDES CELLS CELTS CENTS CHAIN CHAIR CHALK CHAMP CHANT CHAOS CHAPS CHARD CHARM CHARS CHART CHASE \
+CHASM CHEAP CHEAT CHECK CHEEK CHEER CHESS CHEST CHICK CHIDE CHIEF CHILD CHILI CHILL CHIMP CHINA CHINS \
+CHIPS CHIRP CHOIR CHOKE CHORD CHORE CHOSE CHOWS CHUCK CHUMP CHUNK CHURN CHUTE CIGAR CINCH CIRCA CITED \
+CITES CIVIC CIVIL CLAIM CLAMP CLAMS CLANG CLANK CLANS CLASH CLASP CLASS CLAWS CLAYS CLEAN CLEAR CLEAT \
+CLERK CLICK CLIFF CLIMB CLING CLINK CLIPS CLOAK CLOCK CLODS CLONE CLOSE CLOTH CLOUD CLOUT CLOVE CLOWN \
+CLUBS CLUCK CLUED CLUES CLUMP CLUNG CLUNK COACH COAST COATS COBRA COCOA COCOS CODED CODER CODES CODON \
+COILS COINS COLOR COLTS COMBS COMER COMET COMIC COMMA CONCH CONDO CONED CONES CONKS CORAL CORDS CORED \
+CORES CORGI CORKY CORNS CORNY CORPS COUCH COULD COUNT COUPE COUPS COURT COVER COVET COWER COZEN COZY CRABS \
+CRACK CRAFT CRAGS CRAMP CLAMS CRANE CRANK CRASH CRASS CRATE CRAVE CRAWL CRAZE CRAZY CREAK CREAM CREDO \
+CREED CREEK CREEP CREPT CRESS CREST CREWS CRIBS CRICK CRIED CRIME CRIMP CRISP CROAK CROCK CRONE CRONY \
+CROOK CROPS CROSS CROWD CROWN CRUDE CRUEL CRUET CRUMB CRUSH CRUST CRYPT CUBED CUBES CUBIC CUBIT CUFFS \
+CULLS CUMIN CUPID CURBS CURDS CURED CURER CURES CURLS CURLY CURRY CURSE CURVE CURVY CUSPS CYCLE CYNIC \
+DADDY DAILY DAIRY DAISY DANCE DANDY DARED DARER DARES DARKS DARNS DATUM DAWNS DEALT DEATH DEBIT DEBUT \
+DECAL DECAY DECKS DECOR DECOY DECRY DEEDS DEFER DEITY DELAY DELTA DELVE DEMON DEMUR DENIM DENSE DENTS \
+DEPOT DEPTH DERBY DESKS DETER DETOX DEUCE DEVIL DIARY DICEY DIETS DIGIT DIMLY DINED DINER DINES DINGY \
+DIODE DIRTY DISCO DISKS DITCH DITTY DITTO DIVAN DIVED DIVER DIZZY DOCKS DODGE DODGY DOGMA DOING DOLLS \
+DOLLY DOMES DONEE DONOR DONUT DOOMS DOORS DOSED DOTES DOTTY DOUBT DOUGH DOUSE DOWDY DOWEL DOWNS DOZEN \
+DOZED DRAFT DRAIN DRAKE DRAMA DRANK DRAPE DRAWL DRAWN DRAWS DREAD DREAM DRESS DRIED DRIER DRIFT DRILL \
+DRINK DRIPS DRIVE DROIT DROLL DRONE DROOL DROOP DROPS DROSS DROVE DROWN DRUGS DRUMS DRUNK DRYER DRYLY \
+DUALS DUCKS DUCTS DUELS DUETS DUFFS DULLS DULLY DUMMY DUMPS DUMPY DUNCE DUNES DUNKS DUPED DUPES DUSTY \
+DUTCH DUVET DWARF DWELL DWELT DYING \
+EAGER EAGLE EARED EARLS EARLY EARNS EARTH EASED EASEL EATER EAVES EBBED EBONY EDGED EDGES EDICT EERIE \
+EIGHT EJECT ELBOW ELDER ELECT ELFIN ELITE ELOPE ELUDE ELVES EMBED EMBER EMCEE EMIRS EMITS EMPTY ENACT \
+ENDED ENDOW ENEMY ENJOY ENNUI ENSUE ENTER ENTRY ENVOY EPOCH EPOXY EQUAL EQUIP ERASE ERODE ERROR ERUPT \
+ESSAY ESTER ETHER ETHIC ETHOS EVADE EVENT EVERY EVICT EVOKE EXACT EXALT EXAMS EXCEL EXERT EXILE EXIST \
+EXPAT EXPEL EXPOS EXTRA EXUDE EXULT EYING EYRIE \
+FABLE FACED FACER FACET FACTS FADED FADES FAILS FAINT FAIRY FAITH FALSE FAMED FANCY FANGS FARCE \
+FARED FARES FARMS FATAL FATTY FAULT FAUNA FAUNS FAVOR FEAST FEATS FEEDS FEELS FEIGN FEINT FELLA FELON \
+FEMUR FENCE FENDS FERAL FERNS FERNY FERRY FETAL FETCH FETID FETUS FEUDS FEVER FEWER FIBER FIBRE FIELD \
+FIEND FIERY FIFES FIFTY FIGHT FILCH FILED FILER FILES FILLS FILLY FILMS FILMY FILTH FINAL FINCH FINDS \
+FINED FINER FINES FIRED FIRER FIRES FIRMS FIRST FISHY FISTS FITLY FITS FIXED FIXER FLAGS FLAIR FLAKE \
+FLAKY FLAME FLANK FLAPS FLARE FLASH FLASK FLATS FLAWS FLAWY FLAYS FLEAS FLECK FLEES FLEET FLESH FLICK \
+FLIED FLIER FLIES FLING FLINT FLIPS FLOAT FLOCK FLOOD FLOOR FLORA FLOSS FLOUR FLOUT FLOWN FLOWS FLUID \
+FLUKE FLUKY FLUNG FLUNK FLUSH FLUTE FOAMS FOAMY FOCAL FOCUS FOGGY FOILS FOIST FOLDS FOLIO FOLKS FOLLY \
+FONTS FOODS FOOLS FORAY FORCE FORGE FORGO FORKS FORMS FORTE FORTH FORTS FORTY FORUM FOUND FOUNT FOULS \
+FOXED FOXES FOYER FRAIL FRAME FRANK FRAUD FRAYS FREAK FREED FRESH FRIAR FRIED FRIES FRILL FRISK FRITZ \
+FRIZZ FROCK FROGS FRONT FROST FROTH FROWN FROZE FRUIT FRUMP FUELS FUGAL FULLY FUMED FUMES FUNDS FUNGI \
+FUNKY FUNNY FUROR FURRY FUSED FUSES FUSSY FUZZY \
+GABLE GAFFE GAILY GAINS GAITS GALES GALLS GAILY GAMMA GAMUT GANGS GAPED GAPES GARBS GASES GASPS GATES \
+GAUGE GAUNT GAUZE GAVEL GAZER GAZES GEARS GEEKS GEESE GENES GENIE GENRE GENUS GERMS GHOST GIANT GIDDY \
+GIFTS GILDS GILLS GIRLS GIRTH GISTS GIVEN GIVER GIVES GIZMO GLADE GLAND GLARE GLASS GLAZE GLEAM GLEAN \
+GLIDE GLINT GLOBE GLOOM GLORY GLOSS GLOVE GLOWS GLUED GLUES GLYPH GNASH GNATS GNAWS GNOME GOADS GOATS \
+GODLY GOING GOLDS GOLFS GOLLY GONKS GOODS GOOFS GOOFY GOOSE GORGE GORY GOUGE GOURD GOWNS GRACE GRADE \
+GRAFT GRAIL GRAIN GRAND GRANT GRAPE GRAPH GRASP GRASS GRATE GRAVE GRAVY GRAZE GREAT GREED GREEN GREET \
+GREYS GRIEF GRILL GRIME GRIMY GRIND GRINS GRIPE GRIPS GRITS GROAN GROIN GROOM GROPE GROSS GROUP GROUT \
+GROVE GROWL GROWN GROWS GRUBS GRUEL GRUFF GRUMP GRUNT GUANO GUARD GUAVA GUESS GUEST GUIDE GUILD GUILT \
+GUISE GULCH GULLS GULPS GULLY GUMMY GUMPS GUPPY GUSTS GUSTO GUSTY GUTSY \
+HABIT HACKS HAIKU HAILS HAIRY HALES HALLS HALOS HALTS HALVE HANDS HANDY HANGS HAPPY HARDY HARED HAREM \
+HARES HARKS HARMS HARPS HARPY HARRY HARSH HASTE HASTY HATCH HATED HATER HAULS HAUNT HAVEN HAVOC HAWKS \
+HAZEL HEADS HEADY HEALS HEAPS HEARD HEART HEAVE HEAVY HEDGE HEEDS HEELS HEFTY HEIRS HEIST HELIX HELLO \
+HELPS HENCE HENNA HERBS HERDS HERON HILLY HINDS HINGE HINTS HIPPO HIRED HITCH HIVES HOARD HOARY HOBBY \
+HOIST HOLDS HOLED HOLES HOLLY HOMER HOMES HONEY HONOR HOODS HOOKS HOOPS HOPED HOPER HOPES HORNS HORNY \
+HORSE HOSED HOTEL HOTLY HOUND HOUSE HOVER HOWDY HOWLS HUFFY HULKS HULKY HUMAN HUMID HUMOR HUMPH HUMPS \
+HUNCH HUNKS HUNKY HUNTS HURLS HURRY HUSKY HYMNS HYENA HYPER HYPOS \
+ICIER ICILY ICING ICONS IDEAL IDIOM IDIOT IDLED IDLER IDLES IDOLS IMAGE IMBUE IMPEL IMPLY INANE INBOX \
+INCUR INDEX INDIE INEPT INERT INFER INGOT INKED INLET INNER INPUT INTER INTRO IONIC IRATE IRKED IRONY \
+IVORY ISSUE \
+JACKS JADED JAILS JAMES JAZZY JEANS JEERS JELLY JENNY JERKS JERKY JESTS JEWEL JIFFY JILTS JIMMY JOINS \
+JOINT JOKER JOLLY JOLTS JOUST JOYED JUDGE JUICE JUICY JULEP JUMBO JUMPS JUMPY JUNCO JUNKS JUNKY JUROR \
+KARMA KAYAK KEBAB KEELS KEEPS KELPS KEMPT KHAKI KICKS KILLS KILNS KILTS KINDS KINGS KINKS KINKY KIOSK \
+KNACK KNAVE KNEAD KNEEL KNEES KNELT KNIFE KNITS KNOBS KNOCK KNOLL KNOTS KNOWN \
+LABEL LABOR LACED LACER LACES LADEN LADLE LAGER LAGGY LAMPS LANCE LANDS LANES LANKY LAPSE LARGE LARKS \
+LARVA LASER LATCH LATER LATEX LATHE LATTE LAUGH LAWNS LAYER LEADS LEAFY LEAKS LEAKY LEAPT LEARN LEASE \
+LEASH LEAST LEAVE LEDGE LEECH LEEKS LEGAL LEGGY LEMON LENDS LEPER LEVEL LEVER LICKS LIFTS LIGHT LIKED \
+LIKEN LILAC LILTS LIMBO LIMBS LIMED LIMES LIMIT LIMPS LINED LINEN LINER LINES LINGO LINKS LIONS LISPS \
+LISTS LITER LIVED LIVEN LIVER LIVES LIVID LLAMA LOADS LOAFS LOAMS LOAMY LOANS LOBBY LOCAL LOCKS LOCUS \
+LODGE LOFTS LOFTY LOGIC LOGIN LOGOS LOINS LONER LOOKS LOOMS LOOPS LOOPY LOOSE LOPED LOPES LORDS LORRY \
+LOSER LOTUS LOUSY LOVED LOVER LOVES LOWER LOWLY LOYAL LUCID LUCKY LUMPS LUMPY LUNAR LUNCH LUNGE LURCH \
+LURED LURES LURKS LUSTY LUTES LYMPH LYRIC \
+MACHO MACRO MADAM MADLY MAFIA MAGIC MAGMA MAIDS MAILS MAJOR MAKER MALES MALLS MALTS MAMMA MANGA MANGO \
+MANLY MANOR MAPLE MARCH MARES MARKS MARRY MARSH MASKS MASON MATCH MATED MATHS MATTE MAULS MAXIM MAYBE \
+MAYOR MAZES MEALY MEANY MEATY MEDIA MEDIC MELDS MELON MELTS MEMOS MENDS MENUS MERCY MERGE MERIT MERRY \
+MESHY MESSY METAL METER METRO MICAS MICRO MIDST MIGHT MILES MILLS MIMIC MINCE MINDS MINED MINER MINES \
+MINOR MINUS MIRTH MISER MISTY MITER MITES MITTS MIXED MIXER MOANS MOATS MODEL MODEM MODES MOGUL MOIST \
+MOLAR MOLDS MOLDY MOLES MOLLS MOLTS MONKS MONEY MONTH MOODS MOODY MOOSE MOPED MOPES MORAL MORON MORPH \
+MOTEL MOTHS MOTIF MOTOR MOTTO MOULD MOULT MOUND MOUNT MOURN MOUSE MOUTH MOVED MOVER MOVES MOVIE MOWED \
+MOWER MUCKY MUCUS MUDDY MUFFS MUGGY MULCH MULES MULLS MUMPS MUMMY MUNCH MURAL MURKY MUSHY MUSIC MUSKS \
+MUSKY MUSSY MUSTY MUTTS MYTHS \
+NAANS NACHO NADIR NAIVE NAMED NAMES NANNY NAPES NARKS NASAL NASTY NATAL NAVAL NAVEL NEAPS NEARS NECKS \
+NEEDY NERVE NERVY NESTS NEVER NEWLY NEXUS NICHE NICKS NIECE NIGHT NINJA NOBLE NOBLY NODES NOISE NOISY \
+NOOKS NOONS NOOSE NORMS NORTH NOTCH NOTED NOTES NOVEL NUDGE NULLS NUMBS NURSE NUTTY NYLON NYMPH \
+OAKEN OARED OASES OASIS OATEN OATHS OCCUR OCEAN OCHER OCHRE ODDLY OFFER OFTEN OGLED OGLES OHMIC OILED \
+OILER OLIVE OMEGA ONSET OOMPH OPENS OPERA OPTED OPTIC ORBIT ORDER ORGAN OTHER OTTER OUGHT OUNCE OUTER \
+OUTDO OUTRE OVALS OVARY OVERT OVOID OWNED OWNER OXIDE OZONE \
+PACED PACER PACES PACKS PADDY PADRE PAGAN PAGED PAGES PAILS PAINS PAINT PAIRS PALMS PALSY PANDA PANED \
+PANEL PANES PANGS PANIC PANSY PANTS PAPAS PAPER PARCH PARED PARES PARIS PARKS PARTS PARTY PASSE PASTA \
+PASTE PATCH PATIO PAUSE PAVED PAVER PAVES PAWED PAWNS PEACE PEACH PEAKS PEARL PEARS PECAN PECKS PEDAL \
+PEEKS PEELS PEEPS PEERS PELTS PENAL PENCE PENNY PERCH PERIL PERKS PERKY PERMS PESOS PESTO PESTS PETAL \
+PETTY PHASE PHONE PHONY PHOTO PIANO PICKS PIECE PIETY PIGGY PILED PILES PILLS PILOT PIMPS PINCH PINED \
+PINES PINGS PINKS PINKY PINTO PIOUS PIPED PIPER PIPES PIQUE PIXEL PIZZA PLACE PLAID PLAIN PLANE PLANK \
+PLANS PLANT PLATE PLATS PLAYS PLAZA PLEAD PLEAS PLEAT PLIED PLIER PLODS PLOPS PLOTS PLOWS PLOYS PLUCK \
+PLUGS PLUMB PLUME PLUMP PLUMS PLUNK PLUSH PLYER POACH POCKS POEMS POETS POINT POISE POKER POLAR POLED \
+POLES POLKA POLLS POLYP PONDS POOLS POPPY POPUP PORCH PORED PORES PORKY PORTS POSED POSER POSIT POSSE \
+POTTY POUCH POULT POUND POURS POWER PRANK PRAWN PRAYS PRESS PRICE PRICK PRIDE PRIED PRIES PRIME PRIMP \
+PRINT PRIOR PRISM PRIVY PRIZE PROBE PRODS PROM PRONE PRONG PROOF PROPS PROSE PROUD PROVE PROWL PRUDE \
+PRUNE PSALM PUBIC PUDGY PUFFS PUFFY PULLS PULPS PULSE PUMPS PUNCH PUNKS PUPIL PUPPY PURGE PURRS PURSE \
+PUSHY PUTTS PUTTY PYGMY \
+QUACK QUAFF QUAIL QUALM QUASI QUASH QUEEN QUEER QUELL QUERY QUEST QUEUE QUICK QUIET QUILL QUILT QUIPS \
+QUIRK QUOTA QUOTE \
+RABBI RABID RACED RACER RACES RACKS RADAR RADII RADIO RAFTS RAGED RAGES RAIDS RAILS RAINY RAISE RAKED \
+RAKES RALLY RAMPS RANCH RANGE RANKS RAPID RATED RATES RAVED RAVEN RAVES RAYON RAZOR REACH REACT READS \
+READY REALM REAMS REARS REBEL RECAP RECUR REEDS REEFS REEKS REFER REIGN REINS RELAX RELAY RELIC REMIT \
+RENEW RENTS REPAY REPEL REPLY RERUN RESET RESIN RESTS RETRO RETRY REVEL RIDER RIDES RIDGE RIFLE RIGID \
+RIGOR RILED RILLS RINDS RINGS RINSE RIOTS RIPEN RIPER RISEN RISKS RISKY RITES RIVAL RIVER RIVET ROADS \
+ROAMS ROARS ROAST ROBED ROBES ROBIN ROBOT ROCKS ROCKY RODEO ROGUE ROLES ROLLS ROMAN ROMPS ROOFS ROOMS \
+ROOMY ROOST ROOTS ROPED ROPES ROSES ROUGE ROUGH ROUND ROUTE ROVER ROWDY ROWED ROWER ROYAL RUGBY RUINS \
+RULED RULER RULES RUMBA RUMOR RUMPS RUNGS RUINS RURAL RUSTS RUSTY \
+SABER SABLE SADLY SAINT SALAD SALES SALLY SALON SALSA SALTS SALTY SALVE SAMBA SANDY SANER SATIN SAUCE \
+SAUCY SAUNA SAUTE SAVOR SCALE SCALP SCAMP SCAMS SCANS SCARE SCARF SCARY SCENE SCENT SCOLD SCONE SCOOP \
+SCOPE SCORE SCORN SCOUT SCOWL SCRAM SCRAP SCREW SCRUB SCULP SEALS SEAMS SEATS SEDAN SEEDS SEEDY SEIZE \
+SELLS SENDS SENSE SEPIA SERUM SERVE SETUP SEVEN SEVER SEWED SEWER SHADE SHADY SHAFT SHAKE SHALE SHALL \
+SHAME SHANK SHAPE SHARD SHARE SHARK SHARP SHAVE SHAWL SHEAR SHEDS SHEEN SHEEP SHEER SHEET SHELF SHELL \
+SHIFT SHIMS SHINE SHINY SHIPS SHIRE SHIRK SHIRT SHOCK SHOES SHONE SHOOK SHOOT SHORE SHORT SHOTS SHOUT \
+SHOVE SHOWN SHOWS SHOWY SHRED SHREW SHRUB SHRUG SHUCK SHUNS SHUTS SIEGE SIEVE SIGHT SIGMA SIGNS SILKS \
+SILKY SILLY SINCE SINEW SINGE SINKS SIREN SISSY SITES SIXTH SIXTY SIZED SIZES SKATE SKEIN SKIMP SKILL \
+SKIMP SKINS SKIPS SKIRT SKULL SKUNK SLABS SLACK SLAGS SLAIN SLAKE SLAMS SLANG SLANT SLAPS SLASH SLATE \
+SLAVE SLAYS SLEDS SLEEK SLEEP SLEET SLEPT SLEWS SLICE SLIDE SLIME SLIMY SLING SLINK SLOPE SLOPS SLOTH \
+SLOTS SLOWS SLUGS SLUMP SLUMS SLUNG SLUNK SLURP SLUSH SMART SMASH SMEAR SMELL SMILE SMIRK SMITE SMITH \
+SMOCK SMOKE SMOKY SNACK SNAGS SNAIL SNAKE SNAPS SNARE SNARK SNEAK SNEER SNIDE SNIFF SNIPS SNORE SNORT \
+SNOUT SNOWY SNUBS SNUCK SNUGS SOAPY SOARS SOBER SOCKS SOFAS SOFTY SOLAR SOLED SOLID SOLVE SONIC SORRY \
+SORTS SOUKS SOULS SOUND SOUTH SOWED SOWER SPACE SPADE SPANS SPARE SPARK SPAWN SPEAK SPEAR SPECS SPEED \
+SPELL SPEND SPENT SPICE SPICY SPIED SPIEL SPIES SPIKE SPILL SPINE SPITE SPLIT SPOKE SPOON SPORT SPOTS \
+SPOUT SPRAY SPREE SPRIG SPUNK SPURN SPURS SPURT SQUAD SQUAT SQUID STACK STAFF STAGE STAGS STAIN STAIR \
+STAKE STALE STALK STALL STAMP STAND STANK STARE STARK START STASH STATE STAYS STEAK STEAL STEAM STEED \
+STEEL STEEP STEER STEMS STERN STEWS STICK STIFF STILE STILL STING STINT STIRS STOCK STOIC STOKE STOLE \
+STOMP STONE STOOD STOOL STOOP STORE STORK STORM STORY STOUT STOVE STRAP STRAW STRAY STRIP STROP STRUM \
+STRUT STUCK STUDS STUDY STUFF STUMP STUNG STUNK STUNT SUING STYLE SUGAR SUITE SULKS SULKY SUMAC SUNNY \
+SUPER SURGE SURLY SUSHI SWABS SWAMP SWANS SWAPS SWARM SWEAR SWEAT SWEEP SWEET SWELL SWEPT SWIFT SWILL \
+SWINE SWING SWIPE SWIRL SWOON SWOOP SWORD SWORE SWORN SWUNG SYRUP \
+TABBY TABLE TABOO TACIT TACKS TACKY TAFFY TAILS TAINT TAKEN TAKER TAKES TALES TALKS TALLY TALON TAMED \
+TAMER TANGO TANGS TANGY TANKS TAPER TAPES TARDY TARTS TASTE TASTY TAUNT TAXED TAXES TEACH TEAMS TEARS \
+TEASE TEDDY TEENS TEETH TEMPO TEMPS TENDS TENOR TENSE TENTH TEPID TERMS TERRA TESTS TEXTS THEFT THEME \
+THICK THIEF THIGH THING THINK THIRD THORN THOSE THREE THREW THROW THUDS THUMB THUMP TIARA TICKS TIDAL \
+TIDES TIERS TIGER TIGHT TILED TILES TILTS TIMED TIMER TIMID TINTS TIPSY TIRED TITAN TITLE TOAST TODAY \
+TOKEN TOLLS TOMBS TONED TONER TONES TONGS TONIC TOOLS TOPIC TOPAZ TORCH TORSO TOTAL TOTEM TOUCH TOUGH \
+TOURS TOWED TOWEL TOWER TOWNS TOXIC TOYS TRACE TRACK TRADE TRAIL TRAIN TRAIT TRAMP TRANS TRAPS TRASH \
+TRAWL TRAYS TREAT TREES TREND TRIAD TRIAL TRIBE TRICK TRIED TRIMS TRITE TROLL TROOP TROPE TROTH TROTS \
+TROUT TROVE TRUCK TRUCE TRULY TRUMP TRUNK TRUSS TRUST TRUTH TUBER TUCKS TULIP TUMOR TUNED TUNER TUNES \
+TUNIC TUPLE TURFS TURNS TUTOR TWANG TWEAK TWEED TWICE TWIGS TWILL TWINE TWIST TYING TYPED TYPOS \
+UDDER ULCER ULTRA UMBRA UNCLE UNDER UNDUE UNFIT UNION UNITE UNITY UNLIT UNTIL UNWED UPPER UPSET URBAN \
+URGED URGES USAGE USHER USUAL UTTER \
+VAGUE VALID VALOR VALUE VALVE VAPOR VASES VAULT VEGAN VEILS VEINS VENOM VENUE VERBS VERGE VERSE VIDEO \
+VIEWS VIGOR VINES VINYL VIOLA VIPER VIRAL VIRUS VISOR VISIT VISTA VITAL VIVID VIXEN VOCAL VODKA VOGUE \
+VOICE VOLTS VOMIT VOTED VOTER VOUCH VOWED VOWEL VYING \
+WACKY WADED WADER WAGED WAGER WAGES WAGON WAIST WAITS WAIVE WAKED WAKES WALKS WALLS WALTZ WANDS WANTS \
+WARDS WARES WARNS WARPS WARTS WARTY WASTE WATCH WATER WAVED WAVER WAVES WAXED WAIST WEARY WEAVE WEDGE \
+WEEDS WEEDY WEEKS WEIGH WEIRD WELLS WHALE WHEAT WHEEL WHERE WHICH WHILE WHIMS WHINE WHIPS WHIRL WHISK \
+WHITE WHOLE WHOSE WICKS WIDEN WIDTH WIELD WILES WILTS WIMPY WINCH WINDS WINDY WINCE WINGS WINKS WIPED \
+WIPER WIRED WIRES WITCH WITTY WOKEN WOMAN WOMEN WOODY WOOZY WORDS WORDY WORKS WORLD WORMS WORMY WORRY \
+WORSE WORST WORTH WOULD WOUND WRATH WREAK WRECK WREST WRING WRIST WRITE WRONG WROTE WRYLY \
+YACHT YARDS YARNS YEARN YEARS YEAST YELLS YIELD YOKEL YOUNG YOURS YOUTH YUMMY \
+ZAPPY ZEBRA ZEROS ZESTY ZINCS ZINGY ZIPPY ZONES";
+
+
+/* ========================================================================
+   SECTION 2: PARSE & DEDUPLICATE WORD LISTS
+   ======================================================================== */
+
+const ANSWERS = [...new Set(
+  ANSWERS_STR.toUpperCase().split(/\s+/).filter(w => /^[A-Z]{5}$/.test(w))
+)];
+const EXTRA = [...new Set(
+  EXTRA_STR.toUpperCase().split(/\s+/).filter(w => /^[A-Z]{5}$/.test(w))
+)];
+const VALID = new Set([...ANSWERS, ...EXTRA]);
+
+/* ========================================================================
+   SECTION 3: SEEDED RNG & DAILY PUZZLE
+   ======================================================================== */
+
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle(arr, seed) {
+  const rng = mulberry32(seed);
+  const s = arr.slice();
+  for (let i = s.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [s[i], s[j]] = [s[j], s[i]];
+  }
+  return s;
+}
+
+const EPOCH = new Date(2024, 0, 1).getTime(); // Jan 1 2024
+const SHUFFLED = seededShuffle(ANSWERS, 20240101);
+
+function getDayNum() {
+  const now = new Date();
+  const local = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.floor((local - EPOCH) / 86400000);
+}
+
+function getDailyWord(dayNum) {
+  const idx = ((dayNum % SHUFFLED.length) + SHUFFLED.length) % SHUFFLED.length;
+  return SHUFFLED[idx];
+}
+
+function msUntilMidnight() {
+  const now = new Date();
+  const mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return mid.getTime() - now.getTime();
+}
+
+/* ========================================================================
+   SECTION 4: EVALUATION LOGIC
+   ======================================================================== */
+
+function evaluate(guess, answer) {
+  const result = Array(5).fill('absent');
+  const aLetters = answer.split('');
+  const gLetters = guess.split('');
+
+  // Pass 1: exact matches → correct
+  for (let i = 0; i < 5; i++) {
+    if (gLetters[i] === aLetters[i]) {
+      result[i] = 'correct';
+      aLetters[i] = null;
+      gLetters[i] = null;
+    }
+  }
+  // Pass 2: wrong-position matches → present
+  for (let i = 0; i < 5; i++) {
+    if (gLetters[i] === null) continue;
+    const j = aLetters.indexOf(gLetters[i]);
+    if (j !== -1) {
+      result[i] = 'present';
+      aLetters[j] = null;
+    }
+  }
+  return result;
+}
+
+/* ========================================================================
+   SECTION 5: HARD MODE VALIDATION
+   ======================================================================== */
+
+function hardModeError(guess, guesses, results) {
+  for (let g = 0; g < guesses.length; g++) {
+    const prev = guesses[g];
+    const res = results[g];
+    for (let i = 0; i < 5; i++) {
+      if (res[i] === 'correct' && guess[i] !== prev[i]) {
+        const pos = ['1st','2nd','3rd','4th','5th'][i];
+        return pos + ' letter must be ' + prev[i];
+      }
+    }
+    for (let i = 0; i < 5; i++) {
+      if (res[i] === 'present' && !guess.includes(prev[i])) {
+        return 'Guess must contain ' + prev[i];
+      }
+    }
+  }
+  return null;
+}
+
+/* ========================================================================
+   SECTION 6: STATE
+   ======================================================================== */
+
+const MAX_GUESSES = 6;
+
+const state = {
+  mode: 'daily',
+  settings: { hardMode: false, theme: 'system', highContrast: false },
+  daily: { dayNum: 0, answer: '', guesses: [], results: [], currentGuess: '', gameOver: false, won: false },
+  unlimited: { answer: '', guesses: [], results: [], currentGuess: '', gameOver: false, won: false },
+  stats: {
+    daily: { played: 0, won: 0, streak: 0, maxStreak: 0, dist: [0,0,0,0,0,0] },
+    unlimited: { played: 0, won: 0, streak: 0, maxStreak: 0, dist: [0,0,0,0,0,0] }
+  }
+};
+
+function game() { return state.mode === 'daily' ? state.daily : state.unlimited; }
+function stats() { return state.stats[state.mode]; }
+
+/* ========================================================================
+   SECTION 7: PERSISTENCE (localStorage)
+   ======================================================================== */
+
+const STORAGE_KEY = 'wordlet_v1';
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      settings: state.settings,
+      daily: state.daily,
+      unlimited: { answer: state.unlimited.answer, guesses: state.unlimited.guesses, results: state.unlimited.results, gameOver: state.unlimited.gameOver, won: state.unlimited.won },
+      stats: state.stats
+    }));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+
+    if (d.settings) Object.assign(state.settings, d.settings);
+    if (d.stats) {
+      if (d.stats.daily) Object.assign(state.stats.daily, d.stats.daily);
+      if (d.stats.unlimited) Object.assign(state.stats.unlimited, d.stats.unlimited);
+    }
+
+    // Restore daily game if it's the same day
+    if (d.daily && d.daily.dayNum === getDayNum()) {
+      Object.assign(state.daily, d.daily);
+      state.daily.currentGuess = '';
+    }
+
+    // Restore unlimited game in progress
+    if (d.unlimited && d.unlimited.answer && !d.unlimited.gameOver) {
+      Object.assign(state.unlimited, d.unlimited);
+      state.unlimited.currentGuess = '';
+    }
+  } catch(e) {}
+}
+
+function exportData() {
+  return JSON.stringify({ settings: state.settings, stats: state.stats }, null, 2);
+}
+
+function importData(json) {
+  try {
+    const d = JSON.parse(json);
+    if (d.settings) Object.assign(state.settings, d.settings);
+    if (d.stats) {
+      if (d.stats.daily) Object.assign(state.stats.daily, d.stats.daily);
+      if (d.stats.unlimited) Object.assign(state.stats.unlimited, d.stats.unlimited);
+    }
+    saveState();
+    applySettings();
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+/* ========================================================================
+   SECTION 8: DOM REFERENCES & RENDERING
+   ======================================================================== */
+
+const $ = id => document.getElementById(id);
+const board = $('board');
+const keyboard = $('keyboard');
+let tiles = [];  // tiles[row][col]
+let keys = {};   // keys['A'] → DOM element
+
+function buildBoard() {
+  board.innerHTML = '';
+  tiles = [];
+  for (let r = 0; r < MAX_GUESSES; r++) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.dataset.row = r;
+    const rowTiles = [];
+    for (let c = 0; c < 5; c++) {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.setAttribute('aria-label', 'empty');
+      row.appendChild(tile);
+      rowTiles.push(tile);
+    }
+    board.appendChild(row);
+    tiles.push(rowTiles);
+  }
+}
+
+function buildKeyboard() {
+  keyboard.innerHTML = '';
+  keys = {};
+  const rows = [
+    ['Q','W','E','R','T','Y','U','I','O','P'],
+    ['A','S','D','F','G','H','J','K','L'],
+    ['ENTER','Z','X','C','V','B','N','M','⌫']
+  ];
+  rows.forEach(row => {
+    const div = document.createElement('div');
+    div.className = 'kb-row';
+    row.forEach(k => {
+      const btn = document.createElement('button');
+      btn.className = 'key' + (k === 'ENTER' || k === '⌫' ? ' wide' : '');
+      btn.textContent = k;
+      btn.dataset.key = k;
+      btn.setAttribute('aria-label', k === '⌫' ? 'Backspace' : k);
+      btn.addEventListener('pointerdown', e => { e.preventDefault(); handleKey(k); });
+      div.appendChild(btn);
+      if (k.length === 1) keys[k] = btn;
+    });
+    keyboard.appendChild(div);
+  });
+}
+
+function renderBoard() {
+  const g = game();
+  // Render completed rows
+  for (let r = 0; r < g.guesses.length; r++) {
+    for (let c = 0; c < 5; c++) {
+      const t = tiles[r][c];
+      t.textContent = g.guesses[r][c];
+      t.dataset.state = g.results[r][c];
+      t.setAttribute('aria-label', g.guesses[r][c] + ', ' + g.results[r][c]);
+    }
+  }
+  // Render current guess row
+  const cur = g.guesses.length;
+  if (cur < MAX_GUESSES) {
+    for (let c = 0; c < 5; c++) {
+      const t = tiles[cur][c];
+      const letter = g.currentGuess[c] || '';
+      t.textContent = letter;
+      t.dataset.state = letter ? 'tbd' : '';
+      t.setAttribute('aria-label', letter || 'empty');
+    }
+  }
+  // Clear remaining rows
+  for (let r = Math.max(cur + 1, g.guesses.length + 1); r < MAX_GUESSES; r++) {
+    for (let c = 0; c < 5; c++) {
+      const t = tiles[r][c];
+      t.textContent = '';
+      delete t.dataset.state;
+      t.setAttribute('aria-label', 'empty');
+    }
+  }
+}
+
+function renderKeyboard() {
+  const g = game();
+  // Reset all keys
+  Object.values(keys).forEach(k => delete k.dataset.state);
+  // Apply best state per letter: correct > present > absent
+  const priority = { correct: 3, present: 2, absent: 1 };
+  for (let r = 0; r < g.guesses.length; r++) {
+    for (let c = 0; c < 5; c++) {
+      const letter = g.guesses[r][c];
+      const result = g.results[r][c];
+      const key = keys[letter];
+      if (!key) continue;
+      const cur = priority[key.dataset.state] || 0;
+      if (priority[result] > cur) key.dataset.state = result;
+    }
+  }
+}
+
+/* ========================================================================
+   SECTION 9: TOASTS
+   ======================================================================== */
+
+function showToast(msg, duration) {
+  if (duration === undefined) duration = 1500;
+  const container = $('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  container.prepend(toast);
+  if (duration > 0) {
+    setTimeout(() => { toast.classList.add('fade'); }, duration);
+    setTimeout(() => { toast.remove(); }, duration + 300);
+  }
+  return toast;
+}
+
+/* ========================================================================
+   SECTION 10: ANIMATIONS
+   ======================================================================== */
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function animatePop(tile) {
+  if (reducedMotion) return;
+  tile.classList.remove('pop');
+  void tile.offsetWidth;
+  tile.classList.add('pop');
+}
+
+function animateFlipRow(row, results, callback) {
+  const rowTiles = tiles[row];
+  if (reducedMotion) {
+    for (let c = 0; c < 5; c++) rowTiles[c].dataset.state = results[c];
+    if (callback) callback();
+    return;
+  }
+  let done = 0;
+  for (let c = 0; c < 5; c++) {
+    const tile = rowTiles[c];
+    const delay = c * 300;
+    setTimeout(() => {
+      tile.classList.add('flip-in');
+      setTimeout(() => {
+        tile.classList.remove('flip-in');
+        tile.dataset.state = results[c];
+        tile.classList.add('flip-out');
+        setTimeout(() => {
+          tile.classList.remove('flip-out');
+          done++;
+          if (done === 5 && callback) callback();
+        }, 250);
+      }, 250);
+    }, delay);
+  }
+}
+
+function animateShake(row) {
+  if (reducedMotion) return;
+  const el = board.children[row];
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+  el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
+}
+
+function animateBounce(row) {
+  if (reducedMotion) return;
+  const rowTiles = tiles[row];
+  for (let c = 0; c < 5; c++) {
+    setTimeout(() => {
+      rowTiles[c].classList.add('bounce');
+      rowTiles[c].addEventListener('animationend', () => rowTiles[c].classList.remove('bounce'), { once: true });
+    }, c * 100);
+  }
+}
+
+/* ========================================================================
+   SECTION 11: INPUT HANDLING
+   ======================================================================== */
+
+let inputLocked = false;
+
+function handleKey(key) {
+  const g = game();
+  if (g.gameOver || inputLocked) return;
+
+  if (key === '⌫' || key === 'BACKSPACE') {
+    if (g.currentGuess.length > 0) {
+      g.currentGuess = g.currentGuess.slice(0, -1);
+      renderBoard();
+      saveState();
+    }
+    return;
+  }
+
+  if (key === 'ENTER') {
+    submitGuess();
+    return;
+  }
+
+  if (/^[A-Z]$/.test(key) && g.currentGuess.length < 5) {
+    g.currentGuess += key;
+    renderBoard();
+    const cur = g.guesses.length;
+    const col = g.currentGuess.length - 1;
+    if (cur < MAX_GUESSES) animatePop(tiles[cur][col]);
+    saveState();
+  }
+}
+
+function submitGuess() {
+  const g = game();
+  const guess = g.currentGuess;
+
+  if (guess.length < 5) {
+    showToast('Not enough letters');
+    animateShake(g.guesses.length);
+    return;
+  }
+
+  if (!VALID.has(guess)) {
+    showToast('Not in word list');
+    animateShake(g.guesses.length);
+    return;
+  }
+
+  // Hard mode check
+  if (state.settings.hardMode && g.guesses.length > 0) {
+    const err = hardModeError(guess, g.guesses, g.results);
+    if (err) {
+      showToast(err);
+      animateShake(g.guesses.length);
+      return;
+    }
+  }
+
+  const result = evaluate(guess, g.answer);
+  const row = g.guesses.length;
+  g.guesses.push(guess);
+  g.results.push(result);
+  g.currentGuess = '';
+
+  inputLocked = true;
+
+  animateFlipRow(row, result, () => {
+    renderKeyboard();
+
+    const won = result.every(r => r === 'correct');
+    const lost = !won && g.guesses.length >= MAX_GUESSES;
+
+    if (won) {
+      g.gameOver = true;
+      g.won = true;
+      const msgs = ['Genius!', 'Magnificent!', 'Impressive!', 'Splendid!', 'Great!', 'Phew!'];
+      showToast(msgs[row] || 'Nice!');
+      animateBounce(row);
+      updateStats(true, g.guesses.length);
+      announce('You won! The word was ' + g.answer);
+      setTimeout(() => openStatsModal(), 2000);
+    } else if (lost) {
+      g.gameOver = true;
+      g.won = false;
+      showToast(g.answer, 3000);
+      updateStats(false, 0);
+      announce('Game over. The word was ' + g.answer);
+      setTimeout(() => openStatsModal(), 2500);
+    }
+
+    saveState();
+    inputLocked = false;
+  });
+}
+
+// Physical keyboard
+document.addEventListener('keydown', e => {
+  if (isModalOpen()) return;
+  const key = e.key.toUpperCase();
+  if (key === 'ENTER' || key === 'BACKSPACE' || (key.length === 1 && /[A-Z]/.test(key))) {
+    e.preventDefault();
+    handleKey(key);
+  }
+});
+
+/* ========================================================================
+   SECTION 12: STATS
+   ======================================================================== */
+
+function updateStats(won, numGuesses) {
+  const s = stats();
+  s.played++;
+  if (won) {
+    s.won++;
+    s.streak++;
+    if (s.streak > s.maxStreak) s.maxStreak = s.streak;
+    s.dist[numGuesses - 1]++;
+  } else {
+    s.streak = 0;
+  }
+  saveState();
+}
+
+/* ========================================================================
+   SECTION 13: SHARE / COPY RESULT
+   ======================================================================== */
+
+function buildShareText() {
+  const g = game();
+  const hc = state.settings.highContrast;
+  const green = hc ? '🟦' : '🟩';
+  const yellow = hc ? '🟧' : '🟨';
+  const gray = '⬛';
+
+  let title = 'Wordlet';
+  if (state.mode === 'daily') title += ' #' + state.daily.dayNum;
+  title += ' ' + (g.won ? g.guesses.length : 'X') + '/' + MAX_GUESSES;
+  if (state.settings.hardMode) title += '*';
+
+  const rows = g.results.map(r =>
+    r.map(s => s === 'correct' ? green : s === 'present' ? yellow : gray).join('')
+  );
+
+  return title + '\n\n' + rows.join('\n');
+}
+
+async function copyShare() {
+  const text = buildShareText();
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Copied to clipboard');
+  } catch(e) {
+    // Fallback for file:// or older browsers
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      showToast('Copied to clipboard');
+    } catch(e2) {
+      showToast('Could not copy — long-press to select text above');
+    }
+    document.body.removeChild(ta);
+  }
+}
+
+/* ========================================================================
+   SECTION 14: MODALS
+   ======================================================================== */
+
+function isModalOpen() {
+  return document.querySelector('.modal-overlay.open') !== null;
+}
+
+function openModal(id) {
+  $(id).classList.add('open');
+  $(id).querySelector('.modal-close').focus();
+}
+
+function closeModal(id) {
+  $(id).classList.remove('open');
+}
+
+// Close buttons
+document.querySelectorAll('.modal-close').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.closest('.modal-overlay').classList.remove('open');
+  });
+});
+
+// Click overlay to close
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// Escape to close
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(o => o.classList.remove('open'));
+  }
+});
+
+// Help
+$('help-btn').addEventListener('click', () => openModal('help-overlay'));
+
+// Stats
+let statsMode = 'daily';
+let countdownInterval = null;
+
+function openStatsModal() {
+  statsMode = state.mode;
+  renderStats();
+  openModal('stats-overlay');
+  startCountdown();
+}
+
+function renderStats() {
+  // Update tab highlight
+  document.querySelectorAll('.stat-mode-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.smode === statsMode);
+  });
+
+  const s = state.stats[statsMode];
+  $('s-played').textContent = s.played;
+  $('s-win').textContent = s.played ? Math.round(100 * s.won / s.played) : 0;
+  $('s-streak').textContent = s.streak;
+  $('s-max').textContent = s.maxStreak;
+
+  // Distribution chart
+  const maxDist = Math.max(...s.dist, 1);
+  const g = state[statsMode];
+  const lastGuessNum = g.won ? g.guesses.length : -1;
+
+  const chart = $('dist-chart');
+  chart.innerHTML = '';
+  for (let i = 0; i < 6; i++) {
+    const row = document.createElement('div');
+    row.className = 'dist-row';
+    const idx = document.createElement('div');
+    idx.className = 'idx';
+    idx.textContent = i + 1;
+    const bar = document.createElement('div');
+    bar.className = 'bar' + (s.dist[i] > 0 ? ' filled' : '') + (i + 1 === lastGuessNum ? ' highlight' : '');
+    bar.style.width = Math.max(8, (s.dist[i] / maxDist) * 100) + '%';
+    bar.textContent = s.dist[i];
+    row.appendChild(idx);
+    row.appendChild(bar);
+    chart.appendChild(row);
+  }
+
+  // Countdown & share button
+  const dailyGame = state.daily;
+  const showCountdown = statsMode === 'daily' && dailyGame.gameOver;
+  $('countdown-section').style.display = showCountdown ? '' : 'none';
+
+  const showShare = state[statsMode].gameOver && state[statsMode].won;
+  $('share-btn').style.display = showShare && statsMode === state.mode ? '' : 'none';
+}
+
+document.querySelectorAll('.stat-mode-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    statsMode = tab.dataset.smode;
+    renderStats();
+  });
+});
+
+$('stats-btn').addEventListener('click', openStatsModal);
+$('share-btn').addEventListener('click', copyShare);
+
+function startCountdown() {
+  clearInterval(countdownInterval);
+  updateCountdown();
+  countdownInterval = setInterval(updateCountdown, 1000);
+}
+
+function updateCountdown() {
+  const ms = msUntilMidnight();
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  $('countdown-timer').textContent =
+    String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+// Settings
+$('settings-btn').addEventListener('click', () => {
+  renderSettings();
+  openModal('settings-overlay');
+});
+
+function renderSettings() {
+  const s = state.settings;
+  $('toggle-hard').classList.toggle('on', s.hardMode);
+  $('toggle-hard').setAttribute('aria-checked', s.hardMode);
+  $('toggle-contrast').classList.toggle('on', s.highContrast);
+  $('toggle-contrast').setAttribute('aria-checked', s.highContrast);
+  $('theme-select').value = s.theme;
+  $('export-area').value = '';
+}
+
+$('toggle-hard').addEventListener('click', () => {
+  const g = game();
+  if (g.guesses.length > 0 && !g.gameOver) {
+    showToast('Hard mode can only be changed before the first guess');
+    return;
+  }
+  state.settings.hardMode = !state.settings.hardMode;
+  renderSettings();
+  saveState();
+});
+
+$('toggle-contrast').addEventListener('click', () => {
+  state.settings.highContrast = !state.settings.highContrast;
+  applySettings();
+  renderSettings();
+  saveState();
+});
+
+$('theme-select').addEventListener('change', () => {
+  state.settings.theme = $('theme-select').value;
+  applySettings();
+  saveState();
+});
+
+$('export-btn').addEventListener('click', () => {
+  $('export-area').value = exportData();
+  $('export-area').select();
+  showToast('Data exported');
+});
+
+$('import-btn').addEventListener('click', () => {
+  const val = $('export-area').value.trim();
+  if (!val) { showToast('Paste JSON data first'); return; }
+  if (importData(val)) {
+    showToast('Data imported successfully');
+    renderBoard();
+    renderKeyboard();
+  } else {
+    showToast('Invalid data format');
+  }
+});
+
+function applySettings() {
+  const s = state.settings;
+  const root = document.documentElement;
+
+  // Theme
+  if (s.theme === 'system') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', s.theme);
+
+  // Contrast
+  if (s.highContrast) root.setAttribute('data-contrast', 'high');
+  else root.removeAttribute('data-contrast');
+}
+
+/* ========================================================================
+   SECTION 15: MODE SWITCHING
+   ======================================================================== */
+
+$('daily-btn').addEventListener('click', () => switchMode('daily'));
+$('unlimited-btn').addEventListener('click', () => switchMode('unlimited'));
+$('new-word-btn').addEventListener('click', newUnlimitedGame);
+
+function switchMode(mode) {
+  state.mode = mode;
+  $('daily-btn').classList.toggle('active', mode === 'daily');
+  $('unlimited-btn').classList.toggle('active', mode === 'unlimited');
+  $('puzzle-num').style.display = mode === 'daily' ? '' : 'none';
+  $('new-word-btn').style.display = mode === 'unlimited' ? '' : 'none';
+
+  buildBoard();
+  renderBoard();
+  renderKeyboard();
+  saveState();
+}
+
+function initDaily() {
+  const dayNum = getDayNum();
+  if (state.daily.dayNum !== dayNum || !state.daily.answer) {
+    state.daily = {
+      dayNum: dayNum,
+      answer: getDailyWord(dayNum),
+      guesses: [],
+      results: [],
+      currentGuess: '',
+      gameOver: false,
+      won: false
+    };
+  }
+  $('puzzle-num').textContent = ' #' + dayNum;
+}
+
+function initUnlimited() {
+  if (!state.unlimited.answer || state.unlimited.gameOver) {
+    newUnlimitedGame();
+  }
+}
+
+function newUnlimitedGame() {
+  state.unlimited = {
+    answer: ANSWERS[Math.floor(Math.random() * ANSWERS.length)],
+    guesses: [],
+    results: [],
+    currentGuess: '',
+    gameOver: false,
+    won: false
+  };
+  if (state.mode === 'unlimited') {
+    buildBoard();
+    renderBoard();
+    renderKeyboard();
+  }
+  saveState();
+}
+
+/* ========================================================================
+   SECTION 16: BOARD SIZING
+   ======================================================================== */
+
+function resizeBoard() {
+  const headerH = 50;
+  const modeBarH = 40;
+  const keyboardH = keyboard.offsetHeight || 200;
+  const padding = 20;
+  const availH = window.innerHeight - headerH - modeBarH - keyboardH - padding;
+  const availW = Math.min(500, window.innerWidth) - 32;
+
+  // For square tiles: boardH = tileSize * 6 + gap * 5; boardW = tileSize * 5 + gap * 4
+  // tileSize from height: (availH - 25) / 6
+  // tileSize from width: (availW - 20) / 5
+  const gap = 5;
+  const tileSizeFromH = (availH - gap * 5) / 6;
+  const tileSizeFromW = (availW - gap * 4) / 5;
+  const tileSize = Math.min(tileSizeFromH, tileSizeFromW, 62);
+
+  const bw = tileSize * 5 + gap * 4;
+  const bh = tileSize * 6 + gap * 5;
+
+  board.style.setProperty('--board-w', bw + 'px');
+  board.style.setProperty('--board-h', bh + 'px');
+  board.style.width = 'var(--board-w)';
+  board.style.height = 'var(--board-h)';
+}
+
+window.addEventListener('resize', resizeBoard);
+
+/* ========================================================================
+   SECTION 17: ACCESSIBILITY
+   ======================================================================== */
+
+function announce(msg) {
+  const el = $('sr-announcer');
+  el.textContent = '';
+  setTimeout(() => { el.textContent = msg; }, 50);
+}
+
+/* ========================================================================
+   SECTION 18: SELF-TEST (run selfTest() in console)
+   ======================================================================== */
+
+window.selfTest = function() {
+  const tests = [
+    {
+      answer: 'ABBEY', guess: 'BABES',
+      expected: ['present','present','correct','correct','absent'],
+      label: 'ABBEY/BABES'
+    },
+    {
+      answer: 'SPEED', guess: 'EERIE',
+      expected: ['present','present','absent','absent','absent'],
+      label: 'SPEED/EERIE'
+    },
+    {
+      answer: 'CRANE', guess: 'EERIE',
+      expected: ['absent','absent','present','absent','correct'],
+      label: 'CRANE/EERIE'
+    },
+    {
+      answer: 'AABBB', guess: 'BBBAA',
+      expected: ['absent','absent','correct','absent','absent'],
+      label: 'AABBB/BBBAA (edge: triple B guess, only middle matches)'
+    },
+    {
+      answer: 'HELLO', guess: 'LLAMA',
+      expected: ['present','present','absent','absent','absent'],
+      label: 'HELLO/LLAMA'
+    },
+    {
+      answer: 'SWEET', guess: 'TEETH',
+      expected: ['present','present','correct','absent','absent'],
+      label: 'SWEET/TEETH'
+    }
+  ];
+
+  let pass = 0, fail = 0;
+  tests.forEach(t => {
+    const result = evaluate(t.guess, t.answer);
+    const ok = result.every((r, i) => r === t.expected[i]);
+    if (ok) {
+      console.log('✅ PASS: ' + t.label);
+      pass++;
+    } else {
+      console.log('❌ FAIL: ' + t.label);
+      console.log('   Expected:', t.expected.join(','));
+      console.log('   Got:     ', result.join(','));
+      fail++;
+    }
+  });
+  console.log('\n' + pass + ' passed, ' + fail + ' failed');
+  return fail === 0;
+};
+
+/* ========================================================================
+   SECTION 19: INITIALIZATION
+   ======================================================================== */
+
+(function init() {
+  loadState();
+  applySettings();
+  buildBoard();
+  buildKeyboard();
+  initDaily();
+  initUnlimited();
+  switchMode(state.mode);
+  resizeBoard();
+
+  // Show help on first visit
+  try {
+    if (!localStorage.getItem('wordlet_visited')) {
+      localStorage.setItem('wordlet_visited', '1');
+      setTimeout(() => openModal('help-overlay'), 300);
+    }
+  } catch(e) {}
+
+  // Check for new day (if left open overnight)
+  setInterval(() => {
+    const curDay = getDayNum();
+    if (state.daily.dayNum !== curDay) {
+      initDaily();
+      if (state.mode === 'daily') {
+        buildBoard();
+        renderBoard();
+        renderKeyboard();
+        $('puzzle-num').textContent = ' #' + curDay;
+      }
+      saveState();
+    }
+  }, 30000);
+})();
+</script>
+</body>
+</html>
