@@ -1,11 +1,1655 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-<meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=wordlet.html">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Enforces the offline guarantee: nothing outside this file can be loaded or contacted. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="A five-letter word-guessing game that works fully offline in a single HTML file.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%236aaa64'/%3E%3Ctext x='16' y='23' font-family='Arial,sans-serif' font-size='20' font-weight='700' fill='white' text-anchor='middle'%3EW%3C/text%3E%3C/svg%3E">
 <title>Wordlet</title>
+<style>
+/* ===================== Theme tokens ===================== */
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --text: #1a1a1b;
+  --muted: #6e7174;
+  --border: #d3d6da;
+  --border-strong: #878a8c;
+  --key-bg: #d3d6da;
+  --key-text: #1a1a1b;
+  --correct: #6aaa64;
+  --present: #c9b458;
+  --absent: #787c7e;
+  --on-color: #ffffff;
+  --accent: var(--correct);
+  --toast-bg: #1a1a1b;
+  --toast-text: #ffffff;
+  --gap: 5px;
+  --board-w: 330px;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #121213;
+  --surface: #1a1a1b;
+  --text: #f8f8f8;
+  --muted: #a1a3a5;
+  --border: #3a3a3c;
+  --border-strong: #565758;
+  --key-bg: #818384;
+  --key-text: #f8f8f8;
+  --correct: #538d4e;
+  --present: #b59f3b;
+  --absent: #3a3a3c;
+  --toast-bg: #f8f8f8;
+  --toast-text: #1a1a1b;
+  color-scheme: dark;
+}
+
+/* Colorblind-friendly palette: orange = right spot, blue = wrong spot. */
+:root[data-contrast="high"] {
+  --correct: #f5793a;
+  --present: #85c0f9;
+}
+
+/* ===================== Base ===================== */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+button, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ===================== Layout ===================== */
+.app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 500px;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0 auto;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  flex: none;
+  height: 52px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header-actions { display: flex; justify-content: flex-end; gap: 4px; }
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+}
+.icon-btn:hover { background: var(--border); }
+.icon-btn svg { width: 22px; height: 22px; }
+
+.mode-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.pill {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--key-bg);
+  color: var(--key-text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.pill[aria-pressed="true"], .pill-accent { background: var(--accent); color: var(--on-color); }
+.puzzle-num { font-weight: 500; opacity: 0.85; }
+
+/* ===================== Board ===================== */
+.board-wrap {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  place-items: center;
+  padding: 4px 16px;
+}
+
+.board {
+  display: grid;
+  grid-template-rows: repeat(6, 1fr);
+  gap: var(--gap);
+  width: var(--board-w);
+  height: calc(var(--board-w) * 1.2);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--gap);
+}
+
+.tile {
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--border);
+  font-size: calc(var(--board-w) * 0.1);
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  user-select: none;
+}
+.tile[data-state="tbd"] { border-color: var(--border-strong); }
+.tile[data-state="correct"] { background: var(--correct); border-color: var(--correct); color: var(--on-color); }
+.tile[data-state="present"] { background: var(--present); border-color: var(--present); color: var(--on-color); }
+.tile[data-state="absent"]  { background: var(--absent);  border-color: var(--absent);  color: var(--on-color); }
+
+/* ===================== Keyboard ===================== */
+.keyboard {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  padding: 8px;
+}
+
+.kb-row { display: flex; justify-content: center; gap: 6px; }
+
+.key {
+  display: grid;
+  flex: 1 1 0;
+  place-items: center;
+  max-width: 44px;
+  height: clamp(44px, 7.5vh, 58px);
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--key-bg);
+  color: var(--key-text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  user-select: none;
+}
+.key-wide { flex-grow: 1.5; max-width: 66px; font-size: 0.75rem; }
+.key svg { width: 22px; height: 22px; }
+.key[data-state="correct"] { background: var(--correct); color: var(--on-color); }
+.key[data-state="present"] { background: var(--present); color: var(--on-color); }
+.key[data-state="absent"]  { background: var(--absent);  color: var(--on-color); }
+
+/* ===================== Toasts ===================== */
+.toasts {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  z-index: 10;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  padding: 12px 16px;
+  border-radius: 6px;
+  background: var(--toast-bg);
+  color: var(--toast-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: opacity 0.3s;
+}
+.toast.is-leaving { opacity: 0; }
+
+/* ===================== Dialogs ===================== */
+dialog {
+  width: min(460px, calc(100% - 32px));
+  max-height: calc(100% - 48px);
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.3);
+}
+dialog::backdrop { background: rgb(0 0 0 / 0.5); }
+
+.dialog-body { position: relative; padding: 24px; }
+.dialog-close { position: absolute; top: 10px; right: 10px; }
+
+dialog h2 {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+  text-transform: uppercase;
+}
+dialog h3 { margin: 16px 0 8px; font-size: 0.9375rem; }
+dialog p { margin: 0 0 10px; font-size: 0.9375rem; }
+dialog hr { margin: 16px 0; border: 0; border-top: 1px solid var(--border); }
+
+.example { display: flex; gap: 4px; margin: 8px 0 6px; }
+.example .tile { width: 40px; height: 40px; font-size: 1.25rem; }
+
+/* Stats */
+.tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0 0 20px;
+  text-align: center;
+}
+.stat { display: flex; flex-direction: column-reverse; }
+.stat dd { margin: 0; font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat dt { font-size: 0.75rem; }
+
+.dist { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.dist li { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; }
+.dist-label { width: 1em; font-weight: 700; text-align: center; }
+.dist-bar {
+  min-width: 1.75em;
+  padding: 2px 8px;
+  background: var(--absent);
+  color: var(--on-color);
+  font-weight: 700;
+  text-align: right;
+}
+.dist-bar.is-current { background: var(--accent); }
+
+.result-answer { margin-top: 16px; text-align: center; }
+.countdown { margin-top: 20px; text-align: center; }
+.countdown p { margin: 0; }
+.timer { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.btn {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--key-bg);
+  color: var(--key-text);
+  font-weight: 600;
+}
+.btn-primary {
+  display: block;
+  margin: 20px auto 0;
+  padding: 12px 28px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-color);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Settings */
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.setting-label { margin: 0 !important; font-weight: 600; }
+.setting-desc { margin: 2px 0 0 !important; color: var(--muted); font-size: 0.8125rem !important; }
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 13px;
+  background: var(--absent);
+  transition: background 0.2s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.2s;
+}
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { transform: translateX(18px); }
+
+select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+textarea {
+  width: 100%;
+  min-height: 96px;
+  margin: 8px 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+  resize: vertical;
+}
+
+.button-row { display: flex; gap: 8px; }
+
+/* ===================== Animations ===================== */
+@keyframes pop   { 50% { transform: scale(1.12); } }
+@keyframes flip  { 50% { transform: rotateX(-90deg); } }
+@keyframes shake { 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+@keyframes bounce {
+  40% { transform: translateY(-30px); }
+  50% { transform: translateY(5px); }
+  60% { transform: translateY(-15px); }
+  80% { transform: translateY(2px); }
+}
+@keyframes fade-in { from { opacity: 0; } }
+
+.tile.pop    { animation: pop 0.1s ease; }
+.tile.flip   { animation: flip 0.5s ease-in-out; }
+.row.shake   { animation: shake 0.5s ease; }
+.tile.bounce { animation: bounce 0.6s ease; }
+dialog[open] { animation: fade-in 0.2s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
 </head>
 <body>
-<a href="wordlet.html">Play Wordlet</a>
+<div class="app">
+  <header class="header">
+    <div>
+      <button type="button" class="icon-btn" data-open="help-dialog" aria-label="How to play">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.5" r="1.2" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <h1 class="title">Wordlet</h1>
+    <div class="header-actions">
+      <button type="button" class="icon-btn" data-open="stats-dialog" aria-label="Statistics">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 13h5v8H3zm6.5-6h5v14h-5zM16 3h5v18h-5z"/></svg>
+      </button>
+      <button type="button" class="icon-btn" data-open="settings-dialog" aria-label="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.47.47 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 0 0-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="mode-bar" aria-label="Game mode">
+    <button type="button" class="pill" data-mode="daily" aria-pressed="true">Daily <span class="puzzle-num" id="puzzle-num"></span></button>
+    <button type="button" class="pill" data-mode="unlimited" aria-pressed="false">Unlimited</button>
+    <button type="button" class="pill pill-accent" id="new-word" hidden>New word</button>
+  </nav>
+
+  <main class="board-wrap" id="board-wrap">
+    <div class="board" id="board" role="group" aria-label="Guesses"></div>
+  </main>
+
+  <div class="keyboard" id="keyboard" role="group" aria-label="Keyboard"></div>
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<div class="sr-only" id="announcer" aria-live="assertive" aria-atomic="true"></div>
+
+<dialog id="help-dialog" aria-labelledby="help-title">
+  <div class="dialog-body">
+    <button type="button" class="icon-btn dialog-close" data-close aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <h2 id="help-title">How to play</h2>
+    <p>Guess the word in 6 tries. Each guess must be a valid 5-letter word.</p>
+    <p>After each guess, the tile colors show how close you were.</p>
+    <div class="example" aria-hidden="true"><span class="tile" data-state="correct">W</span><span class="tile">E</span><span class="tile">A</span><span class="tile">R</span><span class="tile">Y</span></div>
+    <p><strong>W</strong> is in the word and in the right spot.</p>
+    <div class="example" aria-hidden="true"><span class="tile">P</span><span class="tile" data-state="present">I</span><span class="tile">L</span><span class="tile">L</span><span class="tile">S</span></div>
+    <p><strong>I</strong> is in the word but in the wrong spot.</p>
+    <div class="example" aria-hidden="true"><span class="tile">V</span><span class="tile">A</span><span class="tile">G</span><span class="tile" data-state="absent">U</span><span class="tile">E</span></div>
+    <p><strong>U</strong> is not in the word.</p>
+    <hr>
+    <h3>Modes</h3>
+    <p><strong>Daily:</strong> one puzzle per day, changing at local midnight.</p>
+    <p><strong>Unlimited:</strong> as many random puzzles as you like, with separate stats.</p>
+    <p><strong>Hard mode:</strong> revealed hints must be used in later guesses. Turn it on in Settings before your first guess.</p>
+  </div>
+  <div class="toasts" role="status" aria-live="polite"></div>
+</dialog>
+
+<dialog id="stats-dialog" aria-labelledby="stats-title">
+  <div class="dialog-body">
+    <button type="button" class="icon-btn dialog-close" data-close aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <h2 id="stats-title">Statistics</h2>
+    <div class="tabs">
+      <button type="button" class="pill" data-stats-mode="daily" aria-pressed="true">Daily</button>
+      <button type="button" class="pill" data-stats-mode="unlimited" aria-pressed="false">Unlimited</button>
+    </div>
+    <dl class="stat-grid">
+      <div class="stat"><dt>Played</dt><dd id="stat-played">0</dd></div>
+      <div class="stat"><dt>Win %</dt><dd id="stat-win">0</dd></div>
+      <div class="stat"><dt>Current streak</dt><dd id="stat-streak">0</dd></div>
+      <div class="stat"><dt>Max streak</dt><dd id="stat-max">0</dd></div>
+    </dl>
+    <h3>Guess distribution</h3>
+    <ol class="dist" id="dist"></ol>
+    <p class="result-answer" id="result-answer" hidden></p>
+    <div class="countdown" id="countdown" hidden>
+      <p>Next Wordlet in</p>
+      <p class="timer" id="countdown-timer" role="timer">00:00:00</p>
+    </div>
+    <button type="button" class="btn-primary" id="share" hidden>Copy result</button>
+  </div>
+  <div class="toasts" role="status" aria-live="polite"></div>
+</dialog>
+
+<dialog id="settings-dialog" aria-labelledby="settings-title">
+  <div class="dialog-body">
+    <button type="button" class="icon-btn dialog-close" data-close aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <h2 id="settings-title">Settings</h2>
+    <div class="setting">
+      <div>
+        <p class="setting-label" id="hard-mode-label">Hard mode</p>
+        <p class="setting-desc">Revealed hints must be used in later guesses</p>
+      </div>
+      <button type="button" class="switch" id="hard-mode" role="switch" aria-checked="false" aria-labelledby="hard-mode-label"></button>
+    </div>
+    <div class="setting">
+      <label class="setting-label" for="theme">Theme</label>
+      <select id="theme">
+        <option value="system">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
+    <div class="setting">
+      <div>
+        <p class="setting-label" id="contrast-label">High contrast</p>
+        <p class="setting-desc">Colorblind-friendly orange and blue</p>
+      </div>
+      <button type="button" class="switch" id="high-contrast" role="switch" aria-checked="false" aria-labelledby="contrast-label"></button>
+    </div>
+    <h3>Move your stats</h3>
+    <p class="setting-desc">Export, then paste the text into Import on another device.</p>
+    <textarea id="data-transfer" spellcheck="false" aria-label="Stats data"></textarea>
+    <div class="button-row">
+      <button type="button" class="btn" id="export">Export</button>
+      <button type="button" class="btn" id="import">Import</button>
+    </div>
+  </div>
+  <div class="toasts" role="status" aria-live="polite"></div>
+</dialog>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   Word lists
+   ANSWERS_RAW is the pool of solutions; EXTRA_RAW holds additional
+   accepted guesses. Paste in your own whitespace-separated lists:
+   entries are uppercased, deduplicated and filtered to 5 letters on load.
+   ===================================================================== */
+const ANSWERS_RAW = `
+ABACK ABASE ABATE ABBEY ABBOT ABHOR ABIDE ABLER ABODE ABORT ABOUT ABOVE ABUSE ABYSS ACORN ACRID
+ACUTE ADAGE ADDED ADEPT ADMIN ADMIT ADOBE ADOPT ADORE ADORN ADULT AEGIS AFIRE AFTER AGAIN AGENT
+AGILE AGING AGLOW AGONY AGREE AHEAD AIDED AIMED AISLE ALARM ALBUM ALDER ALERT ALIBI ALIEN ALIGN
+ALIKE ALIVE ALLAY ALLEY ALLOT ALLOW ALLOY ALOFT ALONE ALONG ALOOF ALPHA ALTAR ALTER AMASS AMAZE
+AMBER AMBLE AMEND AMINE AMINO AMISS AMONG AMPLE AMPLY AMUSE ANGEL ANGER ANGLE ANGRY ANGST ANIME
+ANKLE ANNEX ANNOY ANTIC ANVIL AORTA APART APHID APPLE APPLY APRON APTLY ARBOR ARDOR ARENA ARGUE
+ARISE ARMOR AROMA AROSE ARRAY ARROW ARSON ARTSY ASCOT ASHEN ASIDE ASSET ATLAS ATOLL ATONE ATTIC
+AUDIO AUDIT AUGER AUGUR AUNTY AVAIL AVERT AVIAN AVOID AWAIT AWAKE AWARD AWARE AWFUL AWOKE AXIAL
+AXIOM AZURE BADGE BADLY BAGEL BAGGY BAKER BALMY BANAL BANJO BARGE BARON BASAL BASED BASIC BASIN
+BASIS BATCH BATON BEACH BEARD BEAST BEGAN BEGIN BEGUN BEING BELLE BELLY BELOW BENCH BERRY BERTH
+BIBLE BIRCH BIRTH BLACK BLADE BLAME BLAND BLANK BLAST BLAZE BLEAK BLEAT BLEED BLEND BLESS BLIMP
+BLIND BLINK BLISS BLITZ BLOAT BLOCK BLOKE BLOND BLOOD BLOOM BLOWN BLUFF BLUNT BLURB BLURT BLUSH
+BOARD BOAST BOBBY BOGUS BONUS BOOST BOOTH BOOZE BORED BORNE BOSOM BOSSY BOTCH BOUND BOXER BRACE
+BRAID BRAIN BRAKE BRAND BRASS BRAVE BRAVO BRAWL BRAWN BREAD BREAK BREED BRICK BRIDE BRIEF BRINE
+BRING BRINK BRISK BROAD BROIL BROKE BROOD BROOK BROOM BROTH BROWN BRUNT BRUSH BRUTE BUDDY BUDGE
+BUGGY BUILD BUILT BULGE BULKY BULLY BUNCH BUNNY BURST BUSHY BUYER BYLAW CABAL CABIN CABLE CADET
+CAMEL CAMEO CANDY CANNY CANOE CAPER CARGO CAROL CARRY CARVE CATCH CATER CAUSE CEDAR CHAIN CHAIR
+CHALK CHAMP CHANT CHAOS CHARM CHART CHASE CHEAP CHEAT CHECK CHEEK CHEER CHESS CHEST CHICK CHIEF
+CHILD CHILI CHILL CHINA CHIRP CHOIR CHORD CHORE CHOSE CHUNK CHURN CIGAR CINCH CIRCA CITED CIVIC
+CIVIL CLAIM CLAMP CLANG CLANK CLASH CLASP CLASS CLEAN CLEAR CLERK CLICK CLIFF CLIMB CLING CLOAK
+CLOCK CLONE CLOSE CLOTH CLOUD CLOWN CLUCK CLUMP CLUNG COACH COAST COBRA COCOA COLOR COMET COMIC
+COMMA CONCH CORAL CORNY COUCH COULD COUNT COUPE COURT COVER COVET CRACK CRAFT CRAMP CRANE CRANK
+CRASH CRASS CRATE CRAVE CRAWL CRAZE CRAZY CREAK CREAM CREDO CREED CREEK CREEP CREST CRIED CRIME
+CRISP CROAK CROSS CROWD CROWN CRUDE CRUEL CRUSH CRUST CRYPT CUBIC CUMIN CUPID CURRY CURSE CURVE
+CYCLE CYNIC DAILY DAIRY DAISY DANCE DANDY DATUM DEALT DEATH DEBIT DEBUT DECAL DECAY DECOR DECOY
+DECRY DEFER DEITY DELAY DELTA DELVE DEMON DEMUR DENIM DENSE DEPOT DEPTH DERBY DETER DETOX DEUCE
+DEVIL DIARY DICEY DIGIT DIMLY DINER DINGY DIRTY DISCO DITCH DITTY DIZZY DODGE DODGY DOGMA DOING
+DOLLY DONOR DONUT DOUBT DOUGH DOWDY DOWEL DRAFT DRAIN DRAKE DRAMA DRANK DRAPE DRAWL DRAWN DREAD
+DREAM DRESS DRIED DRIFT DRILL DRINK DRIVE DROIT DRONE DROOL DROOP DROVE DROWN DRUNK DRYER DRYLY
+DULLY DUMMY DUNCE DUSTY DWARF DWELL DWELT DYING EAGER EAGLE EARLY EARTH EASEL EATEN EATER EDICT
+EIGHT ELBOW ELDER ELECT ELITE ELOPE ELUDE EMBER EMCEE EMPTY ENACT ENDED ENDOW ENEMY ENJOY ENNUI
+ENSUE ENTER ENTRY ENVOY EPOCH EQUAL EQUIP ERASE ERODE ERROR ERUPT ESSAY ETHER ETHIC ETHOS EVADE
+EVENT EVERY EVICT EVOKE EXACT EXALT EXERT EXILE EXIST EXPAT EXPEL EXTRA EXUDE EXULT FABLE FACET
+FAINT FAIRY FAITH FALSE FANCY FATAL FATTY FAULT FAUNA FAVOR FEAST FEIGN FEINT FELLA FELON FEMUR
+FENCE FERAL FERRY FETCH FEVER FEWER FIBER FIBRE FIELD FIEND FIERY FIFTY FIGHT FILTH FINAL FINCH
+FIRST FLAME FLANK FLARE FLASH FLASK FLEET FLESH FLICK FLING FLINT FLOAT FLOCK FLOOD FLOOR FLORA
+FLOSS FLOUR FLOUT FLOWN FLUID FLUKE FLUNG FLUSH FLUTE FOCAL FOCUS FOGGY FOLLY FORAY FORCE FORGE
+FORGO FORTH FORTY FORUM FOSSE FOUND FOYER FRAIL FRAME FRANK FRAUD FREAK FREED FRESH FRIAR FRIED
+FRILL FRISK FRONT FROST FROWN FROZE FRUIT FRUMP FULLY FUNKY FUNNY FUROR FURRY FUSSY FUZZY GAFFE
+GAILY GAMMA GAMUT GAUDY GAUGE GAUNT GAUZE GAVEL GENRE GHOST GIANT GIDDY GIRTH GIVEN GIVER GLADE
+GLAND GLARE GLASS GLAZE GLEAM GLEAN GLIDE GLINT GLOBE GLOOM GLORY GLOSS GLOVE GLYPH GNOME GODLY
+GOING GOLLY GOOSE GORGE GOUGE GOURD GRACE GRADE GRAFT GRAIL GRAIN GRAND GRANT GRAPE GRAPH GRASP
+GRASS GRATE GRAVE GRAVY GRAZE GREAT GREED GREEN GREET GRIEF GRILL GRIME GRIMY GRIND GRIPE GROAN
+GROIN GROOM GROPE GROSS GROUP GROUT GROVE GROWL GROWN GRUEL GRUMP GRUNT GUAVA GUESS GUEST GUIDE
+GUILD GUILT GUISE GULCH GULLY GUMMY GUSTO GUSTY HABIT HAIKU HAIRY HALVE HANDY HAPPY HARDY HARSH
+HASTE HASTY HATCH HAUNT HAVEN HAVOC HAZEL HEADY HEART HEAVE HEAVY HEDGE HEFTY HEIST HELIX HELLO
+HENCE HERON HILLY HINGE HIPPO HITCH HOARD HOBBY HOIST HOLLY HOMER HONEY HONOR HORSE HOTEL HOUND
+HOUSE HOVER HUMAN HUMID HUMOR HUMPH HUNCH HURRY HUSKY HYENA HYPER ICILY ICING IDEAL IDIOM IMAGE
+IMBUE IMPEL IMPLY INANE INBOX INCUR INDEX INDIE INEPT INERT INFER INGOT INNER INPUT INTER INTRO
+IONIC IRONY ISSUE IVORY JAZZY JELLY JENNY JERKY JEWEL JIFFY JOINT JOKER JOLLY JOUST JUDGE JUICE
+JUICY JUMBO JUMPY JUROR KAYAK KEBAB KHAKI KIOSK KNACK KNEAD KNEEL KNELT KNIFE KNOCK KNOLL KNOWN
+LABEL LABOR LADEN LADLE LANCE LANKY LAPSE LARGE LARVA LASER LATCH LATER LATHE LATTE LAUGH LAYER
+LEACH LEAFY LEAKY LEAPT LEARN LEASE LEAST LEAVE LEDGE LEGAL LEGGY LEMON LEVEL LEVER LIBEL LIGHT
+LIKEN LILAC LIMBO LIMIT LINEN LINER LINGO LIVER LLAMA LOBBY LOCAL LOCUS LODGE LOFTY LOGIC LOGIN
+LONER LOOSE LORRY LOSER LOTUS LOUSY LOVED LOVER LOWER LOWLY LOYAL LUCID LUCKY LUMEN LUNAR LUNCH
+LUNGE LURCH LUSTY LYRIC MACHO MACRO MADAM MAFIA MAGIC MAGMA MAJOR MAKER MANGA MANGO MANLY MANOR
+MAPLE MARCH MARRY MARSH MASON MATCH MATTE MAXIM MAYBE MAYOR MEALY MEATY MEDIC MERCY MERGE MERIT
+MERRY MESSY METAL METER METRO MICRO MIDST MIGHT MIMIC MINCE MINOR MINUS MIRTH MISER MISTY MITER
+MODEL MODEM MOGUL MOIST MOLDY MONEY MONTH MOODY MOOSE MORAL MORPH MOTEL MOTIF MOTOR MOTTO MOUND
+MOUNT MOURN MOUSE MOUTH MOVIE MUCKY MUDDY MUMMY MUNCH MURAL MURKY MUSHY MUSIC MUSTY NACHO NAIVE
+NAMED NANNY NASTY NATAL NAVAL NAVEL NEEDY NERVE NERVY NEVER NEWLY NEXUS NICHE NIGHT NINJA NOBLE
+NOBLY NOISE NOISY NORTH NOTCH NOTED NOVEL NUDGE NURSE NUTTY NYLON NYMPH OASIS OCCUR OCEAN ODDLY
+OFFER OFTEN OLIVE OMEGA ONSET OPERA OPTIC ORBIT ORDER ORGAN OTHER OTTER OUGHT OUNCE OUTDO OUTER
+OVERT OWNER OXIDE OZONE PADDY PAINT PANDA PANEL PANIC PANSY PAPER PARTY PASTA PASTE PATCH PATIO
+PAUSE PEACE PEACH PEARL PECAN PEDAL PENNY PERCH PERIL PERKY PESTO PETAL PETTY PHASE PHONE PHOTO
+PIANO PIECE PIETY PIGGY PILOT PINCH PIXEL PIZZA PLACE PLAID PLAIN PLANE PLANK PLANT PLATE PLAZA
+PLEAD PLEAT PLIED PLIER PLUCK PLUMB PLUME PLUMP PLUNK PLUSH POACH POINT POISE POKER POLAR POLKA
+POLYP POPPY PORCH PORKY POSER POSIT POSSE POUCH POUND POWER PRANK PRAWN PRESS PRICE PRICK PRIDE
+PRIME PRINT PRIOR PRISM PRIVY PRIZE PROBE PRONE PROOF PROSE PROUD PROVE PROWL PRUDE PRUNE PSALM
+PUDGY PULSE PUNCH PUPIL PUPPY PURGE PURSE PUSHY PUTTY PYGMY QUACK QUAFF QUAIL QUALM QUASI QUEEN
+QUERY QUEST QUEUE QUICK QUIET QUILL QUILT QUIRK QUOTA QUOTE RABBI RABID RADAR RADIO RAINY RAISE
+RALLY RANCH RANGE RAPID RAVEN RAYON RAZOR REACH REACT READY REALM REBEL RECAP RECUR REFER REIGN
+RELAX RELAY RELIC REMIT RENEW REPAY REPEL REPLY RERUN RESET RESIN RETRO RETRY REVEL RIDER RIDGE
+RIFLE RIGID RIGOR RINSE RISEN RISKY RIVAL RIVER RIVET ROACH ROAST ROBIN ROBOT ROCKY RODEO ROGUE
+ROOST ROUGE ROUGH ROUND ROUTE ROVER ROWDY ROYAL RUGBY RULER RUMBA RUMOR RURAL RUSTY SADLY SAINT
+SALAD SALON SALSA SALTY SALVE SANDY SAUCE SAUNA SAVOR SCALE SCALP SCAMP SCARE SCARF SCARY SCENE
+SCENT SCOLD SCONE SCOOP SCOPE SCORE SCORN SCOUT SCOWL SCRAM SCRAP SCREW SCRUB SEDAN SEIZE SENSE
+SEPIA SERUM SERVE SETUP SEVEN SEVER SEWER SHADE SHADY SHAFT SHAKE SHALE SHALL SHAME SHAPE SHARD
+SHARE SHARK SHARP SHAVE SHAWL SHEEN SHEEP SHEER SHEET SHELF SHELL SHIFT SHINE SHINY SHIRE SHIRT
+SHOCK SHORE SHORT SHOUT SHOVE SHOWN SHOWY SHRUB SHRUG SIEGE SIGHT SIGMA SINCE SINEW SIXTH SIXTY
+SKATE SKILL SKIMP SKULL SKUNK SLACK SLAIN SLANG SLANT SLASH SLATE SLAVE SLEEK SLEEP SLEET SLICE
+SLIDE SLIME SLIMY SLING SLOPE SLOTH SLUMP SLUNG SMACK SMALL SMART SMASH SMEAR SMELL SMILE SMIRK
+SMITH SMOCK SMOKE SMOKY SNACK SNAIL SNAKE SNARE SNEAK SNEER SNIDE SNIFF SNORE SNORT SNOUT SNOWY
+SOAPY SOBER SOLAR SOLID SOLVE SONIC SORRY SOUTH SPACE SPADE SPARE SPARK SPAWN SPEAK SPEAR SPEED
+SPELL SPEND SPENT SPICE SPICY SPILL SPINE SPITE SPLIT SPOKE SPOON SPORT SPOUT SPRAY SPREE SPRIG
+SPUNK SPURT SQUAD SQUAT SQUID STACK STAFF STAGE STAIN STAIR STAKE STALE STALK STALL STAMP STAND
+STANK STARE STARK START STASH STATE STAVE STEAK STEAL STEAM STEEL STEEP STEER STERN STICK STIFF
+STILL STING STINT STOCK STOIC STOKE STOLE STOMP STONE STOOD STOOL STOOP STORE STORK STORM STORY
+STOUT STOVE STRAP STRAW STRAY STRIP STRUM STRUT STUCK STUDY STUFF STUMP STUNG STUNK STUNT STYLE
+SUGAR SUITE SULKY SUNNY SUPER SURGE SURLY SUSHI SWAMP SWARM SWEAR SWEAT SWEEP SWEET SWELL SWEPT
+SWIFT SWINE SWING SWIPE SWIRL SWOOP SWORE SWORN SWUNG SYRUP TABBY TABLE TABOO TACIT TAFFY TAINT
+TAKEN TAKER TALLY TALON TANGO TANGY TAPER TARDY TASTE TASTY TAUNT TAXED TEASE TEMPO TENSE TENTH
+TEPID TERRA THEFT THEME THICK THIEF THIGH THING THINK THIRD THORN THOSE THREE THREW THROW THUMB
+THUMP TIARA TIDAL TIGER TIGHT TIMER TIMID TIPSY TIRED TITAN TITLE TOAST TODAY TOKEN TOPIC TORCH
+TOTAL TOUCH TOUGH TOWEL TOWER TOXIC TRACE TRACK TRADE TRAIL TRAIN TRAIT TRAMP TRASH TRAWL TREAT
+TREND TRIAD TRIAL TRIBE TRICK TRIED TRITE TROLL TROOP TROPE TROTH TROUT TROVE TRUCE TRUCK TRULY
+TRUMP TRUNK TRUST TRUTH TUBER TULIP TUMOR TUNER TUNIC TUPLE TUTOR TWANG TWEAK TWEED TWICE TWINE
+TWIST TYING UDDER ULCER ULTRA UMBRA UNCLE UNDER UNDUE UNFIT UNION UNITE UNITY UNLIT UNTIL UPPER
+UPSET URBAN USAGE USHER USUAL UTTER VAGUE VALID VALOR VALUE VALVE VAPOR VAULT VEGAN VENUE VERGE
+VERSE VIGOR VINYL VIOLA VIPER VIRAL VIRUS VISIT VISOR VISTA VITAL VIVID VOCAL VODKA VOGUE VOICE
+VOTER VOUCH VOWEL VYING WACKY WADER WAGER WAGON WAIST WAIVE WALTZ WATCH WATER WEARY WEAVE WEDGE
+WEEDY WEIGH WEIRD WHALE WHEAT WHEEL WHERE WHICH WHILE WHINE WHIRL WHITE WHOLE WHOSE WIDEN WIDTH
+WIELD WINCE WINCH WINDY WITCH WITTY WOMAN WOODY WOOZY WORLD WORRY WORSE WORST WORTH WOULD WOUND
+WRATH WREAK WRECK WREST WRING WRIST WRITE WRONG WROTE WRYLY YACHT YEARN YEAST YIELD YOUNG YOUTH
+YUMMY ZEBRA ZESTY ZINGY ZIPPY
+`;
+
+const EXTRA_RAW = `
+AAHED AALII AARGH ABACA ABACI ABAFT ABAMP ABAND ABASH ABBES ABEAM ABELE ABETS ABLED ABMHO ABOHM
+ABSIT ABUTS ABYSM ACARI ACERB ACETA ACHED ACHES ACIDS ACKEE ACMES ACNED ACNES ACRES ACTED ACTIN
+ADDER ADDLE ADEEM ADIEU ADIOS ADMIX ADUST ADYTA AEONS AERIE AFARA AFARS AFOOT AFOUL AGAPE AGARS
+AGATE AGAVE AGAZE AGENE AGGER AGGIE AGGRO AGHAS AGIOS AGISM AGIST AGLEY AGMAS AGONE AGONS AGORA
+AGUED AHOLD AIDER AIMER AINEE AIRED AIRER AITCH AJIVA AKVIT ALAMO ALARY ALDOL ALGAE ALGAL ALGID
+ALGIN ALGOL ALIAS ALINE ALISO ALKYD ALKYL ALLOD ALLYL ALMAH ALMAS ALMEH ALMES ALMUD ALOES ALOHA
+ALOUD ALTOS ALULA ALUMS ALWAY AMAIN AMBIT AMEBA AMENT AMINS AMITY AMOUR AMUCK AMYLS ANILE ANILS
+ANION ANISE ANKER ANNAS ANNUL ANODE ANOLE ANTIS ANTSY ANURA APEAK APEEK APERS APHIS APING APISH
+APNEA APODS APORT APSES AQUAS ARAKS ARCED ARDEB AREAL ARETE ARGIL ARGOL ARGON ARGUS ARHAT ARLES
+ARMED ARMER AROID ARSES ARUMS ARVAL ASKER ASKEW ASPEN ASTER ATOMS ATONY AUGHT AUNTS AURAL AURAR
+AURES AURIC AVANT AVAST AVOWS AWASH AWING AWNED AXILE AXILS AXION AXLED AXLES AXONE AZIDE AZINE
+AZOIC AZOTE BAALS BABEL BABES BABKA BABOO BACKS BACON BAHTS BAILS BAIRN BAITS BAKED BALAS BALDY
+BALED BALER BALES BALKS BALKY BALLS BALMS BANDS BANDY BANED BANES BANGS BANKS BANNS BARBS BARDS
+BARED BARER BARES BARKS BARKY BARMS BARMY BARNS BARNY BARRY BASER BASES BASIL BASKS BASSI BASSO
+BASTE BATED BATES BATHE BATHS BATTS BATTY BAULK BAWDS BAWDY BAWLS BAYED BAYOU BEADS BEADY BEAKS
+BEAMS BEAMY BEANS BEARS BEATS BEAUS BEAUT BEAUX BEBOP BECKS BEDEW BEDIM BEECH BEEFS BEEFY BEEPS
+BEERS BEERY BEETS BEFOG BEGOT BELAY BELCH BELIE BELLS BELTS BENDS BENDY BENTS BERGS BERMS BERYL
+BESET BETEL BETHS BEVEL BEZEL BICEP BIDDY BIDED BIDER BIKES BILGE BILGY BILKS BILLS BILLY BINDS
+BINGE BIOME BIPED BIRDS BIRLE BIRLS BIRRS BISON BITER BITES BITSY BITTS BITTY BLARE BLASE BLATS
+BLEAR BLIMY BLINI BLIPS BLITE BLOBS BLOCS BLOGS BLOTS BLOWS BLOWY BLUED BLUER BLUES BLUET BLUEY
+BLURS BOARS BOATS BOCKS BODED BODES BOGEY BOGGY BOGIE BOILS BOLAR BOLAS BOLLS BOLTS BOLUS BOMBS
+BONDS BONED BONER BONES BONGS BONKS BONNY BOOBY BOOED BOOKS BOOMS BOOMY BOONS BOORS BOOTS BOOTY
+BOOZY BORAX BORER BORIC BORON BOTHY BOUTS BOWED BOWEL BOWER BOWLS BOXED BOYAR BRACK BRADS BRAGS
+BRANT BRASH BRATS BRAYS BRAZE BREVE BREWS BRIAR BRIBE BRIER BRIGS BRILL BRINS BRINY BROMO BRONC
+BROWS BRUIN BRUIT BUCKS BUFFS BUFFY BULBS BULGY BULKS BULLS BUMPS BUMPY BUNCO BUNDS BUNGS BUNKO
+BUNKS BUNTS BUOYS BURAS BURDS BURGS BURLS BURLY BURNS BURNT BURPS BURRO BURRS BURRY BUSBY BUSTS
+BUSTY BUTCH BUTTE BUTTS BUTYL BUZZY BYRES BYTES BYWAY CABBY CABOT CACAO CACHE CACTI CADDY CADGE
+CADRE CAFES CAGED CAGER CAGES CAGEY CAIRN CAKED CAKES CALLS CALMS CAMPO CAMPS CAMPY CANAL CANED
+CANER CANES CANNA CANON CANTO CAPED CAPES CAPON CARDS CARED CARER CARES CAROB CAROM CARPS CARTS
+CASED CASES CASKS CASTE CATTY CAULK CAVED CAVER CAVES CAVIL CEASE CEDED CEDES CELLS CELTS CENTS
+CHAPS CHARD CHARS CHASM CHEFS CHIDE CHIMP CHINS CHIPS CHOKE CHOWS CHUCK CHUMP CHUTE CITES CLAMS
+CLANS CLAWS CLAYS CLEAT CLINK CLIPS CLODS CLOGS CLOUT CLOVE CLUBS CLUED CLUES CLUNK COALS COATS
+COCOS CODED CODER CODES CODON COILS COINS COLDS COLTS COMBS COMER CONDO CONED CONES CONKS COOKS
+CORDS CORED CORES CORGI CORKS CORKY CORNS CORPS COSTS COUPS COVES COWER COWLS COZEN CRABS CRAGS
+CREPT CRESS CREWS CRIBS CRICK CRIMP CROCK CRONE CRONY CROOK CROPS CROWS CRUET CRUMB CUBED CUBES
+CUBIT CUFFS CULLS CULTS CURBS CURDS CURED CURER CURES CURLS CURLY CURVY CUSPS DADDY DAMES DARED
+DARER DARES DARKS DARNS DARTS DATES DAWNS DEALS DEANS DEBTS DECKS DEEDS DENTS DESKS DIALS DIETS
+DIMES DINED DINES DIODE DISKS DITTO DIVAN DIVED DIVER DIVES DOCKS DOLLS DOMES DONEE DOOMS DOORS
+DOSED DOSES DOTES DOTTY DOUSE DOVES DOWNS DOZED DOZEN DRAGS DRAWS DRIER DRIPS DROLL DROPS DROSS
+DRUGS DRUMS DUALS DUCKS DUCTS DUELS DUETS DUFFS DUKES DULLS DUMPS DUMPY DUNES DUNKS DUPED DUPES
+DUTCH DUVET EARED EARLS EARNS EASED EAVES EBBED EBONY EDGED EDGES EERIE EJECT ELFIN ELVES EMBED
+EMIRS EMITS EPOXY ESTER EXAMS EXCEL EXITS EXPOS EYING EYRIE FACED FACER FACES FACTS FADED FADES
+FAILS FAIRS FALLS FAMED FANGS FARCE FARED FARES FARMS FAUNS FAWNS FEARS FEATS FEEDS FEELS FENDS
+FERNS FERNY FETAL FETID FETUS FEUDS FIFES FILCH FILED FILER FILES FILLS FILLY FILMS FILMY FINDS
+FINED FINER FINES FIRED FIRER FIRES FIRMS FISHY FISTS FITLY FIXED FIXER FIZZY FJORD FLACK FLAGS
+FLAIR FLAKE FLAKY FLAPS FLATS FLAWS FLAWY FLAYS FLEAS FLECK FLEES FLIED FLIER FLIES FLIPS FLOWS
+FLUKY FLUNK FOAMS FOAMY FOILS FOIST FOLDS FOLIO FOLKS FONTS FOODS FOOLS FORKS FORMS FORTE FORTS
+FOULS FOUNT FOXED FOXES FRAYS FRIES FRITZ FRIZZ FROCK FROGS FROTH FUELS FUGAL FUMED FUMES FUNDS
+FUNGI FUSED FUSES GABLE GAINS GAITS GALES GALLS GAMES GANGS GAPED GAPES GARBS GASES GASPS GATES
+GAZER GAZES GEARS GEEKS GEESE GENES GENIE GENUS GERMS GIFTS GILDS GILLS GIRLS GISTS GIVES GIZMO
+GLOWS GLUED GLUES GNASH GNATS GNAWS GOADS GOALS GOATS GOLDS GOLFS GONKS GOODS GOOFS GOOFY GOWNS
+GRABS GREYS GRINS GRIPS GRITS GROWS GRUBS GRUFF GUANO GUARD GULFS GULLS GULPS GUMPS GUPPY GUSTS
+GUTSY HACKS HAILS HALES HALLS HALOS HALTS HANDS HANGS HARED HAREM HARES HARKS HARMS HARPS HARPY
+HARRY HATED HATER HATES HAULS HAWKS HEADS HEALS HEAPS HEARD HEARS HEATS HEEDS HEELS HEIRS HELMS
+HELPS HENNA HERBS HERDS HIKES HILLS HINDS HINTS HIRED HIRES HIVES HOARY HOLDS HOLED HOLES HOMES
+HOODS HOOFS HOOKS HOOPS HOPED HOPER HOPES HORNS HORNY HOSED HOSES HOSTS HOTLY HOURS HOWDY HOWLS
+HUFFY HULKS HULKY HULLS HUMPS HUNKS HUNKY HUNTS HURLS HURTS HYMNS HYPOS ICIER ICONS IDEAS IDIOT
+IDLED IDLER IDLES IDOLS INKED INLET IRATE IRKED ITEMS JACKS JADED JAILS JAMES JEANS JEERS JERKS
+JESTS JILTS JIMMY JOINS JOKES JOLTS JOYED JULEP JUMPS JUNCO JUNKS JUNKY KARMA KEELS KEEPS KELPS
+KEMPT KICKS KILLS KILNS KILTS KINDS KINGS KINKS KINKY KITES KNAVE KNEES KNITS KNOBS KNOTS LACED
+LACER LACES LACKS LAGER LAGGY LAKES LAMBS LAMPS LANDS LANES LARKS LASTS LATEX LAWNS LEADS LEAKS
+LEAPS LEASH LEECH LEEKS LENDS LEPER LIARS LICKS LIFTS LIKED LIKES LILTS LIMBS LIMED LIMES LIMPS
+LINED LINES LINKS LIONS LISPS LISTS LITER LIVED LIVEN LIVES LIVID LOADS LOAFS LOAMS LOAMY LOANS
+LOCKS LOFTS LOGOS LOINS LOOKS LOOMS LOOPS LOOPY LOPED LOPES LORDS LOSES LOVES LUMPS LUMPY LUNGS
+LURED LURES LURKS LUTES LYMPH MADLY MAGNA MAIDS MAILS MALES MALLS MALTS MAMMA MANES MARES MARKS
+MASKS MASTS MATED MATES MATHS MAULS MAZES MEALS MEANS MEANY MEATS MEDIA MELDS MELON MELTS MEMOS
+MENDS MENUS MESHY MICAS MILES MILLS MINDS MINED MINER MINES MINTS MISTS MITES MITTS MIXED MIXER
+MOANS MOATS MODES MOLAR MOLDS MOLES MOLLS MOLTS MONKS MOODS MOONS MOPED MOPES MORON MOTHS MOULD
+MOULT MOVED MOVER MOVES MOWED MOWER MUCUS MUFFS MUGGY MULCH MULES MULLS MUMPS MUSKS MUSKY MUSSY
+MUTTS MYTHS NAANS NADIR NAILS NAMES NAPES NARKS NASAL NEAPS NEARS NECKS NEEDS NERDS NESTS NEWTS
+NICKS NIECE NODES NOOKS NOONS NOOSE NORMS NOTES NOUNS NULLS NUMBS OAKEN OARED OASES OATEN OATHS
+OCHER OCHRE ODORS OGLED OGLES OHMIC OILED OILER OOMPH OPENS OPTED OUTRE OVALS OVARY OVENS OVOID
+OWNED PACED PACER PACES PACKS PACTS PADRE PAGAN PAGED PAGES PAILS PAINS PAIRS PALMS PALSY PANED
+PANES PANGS PANTS PAPAS PARCH PARED PARES PARIS PARKS PARTS PASSE PATHS PAVED PAVER PAVES PAWED
+PAWNS PEAKS PEARS PECKS PEEKS PEELS PEEPS PEERS PELTS PENAL PENCE PERKS PERMS PESOS PESTS PHONY
+PICKS PIERS PILED PILES PILLS PIMPS PINED PINES PINGS PINKS PINKY PINTO PINTS PIOUS PIPED PIPER
+PIPES PIQUE PLANS PLATS PLAYS PLEAS PLODS PLOPS PLOTS PLOWS PLOYS PLUGS PLUMS PLYER POCKS POEMS
+POETS POLED POLES POLLS PONDS POOLS POPUP PORED PORES PORTS POSED POSTS POTTY POULT POURS PRAYS
+PRIED PRIES PRIMP PRODS PRONG PROPS PUBIC PUFFS PUFFY PULLS PULPS PUMPS PUNKS PURRS PUTTS QUASH
+QUEER QUELL QUIPS RACED RACER RACES RACKS RADII RAFTS RAGED RAGES RAIDS RAILS RAINS RAKED RAKES
+RAMPS RANKS RATED RATES RAVED RAVES READS REAMS REARS REEDS REEFS REEKS REINS RENTS RESTS RIDES
+RILED RILLS RINDS RINGS RIOTS RIPEN RIPER RISKS RITES ROADS ROAMS ROARS ROBED ROBES ROCKS ROLES
+ROLLS ROMAN ROMPS ROOFS ROOMS ROOMY ROOTS ROPED ROPES ROSES ROWED ROWER RUINS RULED RULES RUMPS
+RUNGS RUSTS SABER SABLE SACKS SAFES SAILS SALES SALLY SALTS SAMBA SANDS SANER SATIN SAUCY SAUTE
+SCAMS SCANS SCARS SCULP SEALS SEAMS SEATS SEEDS SEEDY SEEKS SELLS SENDS SEWED SHANK SHEAR SHEDS
+SHIMS SHIPS SHIRK SHOES SHONE SHOOK SHOOT SHOPS SHOTS SHOWS SHRED SHREW SHUCK SHUNS SHUTS SIDES
+SIEVE SIGHS SIGNS SILKS SILKY SILLY SINGE SINKS SIREN SISSY SITES SIZED SIZES SKEIN SKIES SKINS
+SKIPS SKIRT SLABS SLAGS SLAKE SLAMS SLAPS SLAYS SLEDS SLEPT SLEWS SLINK SLOPS SLOTS SLOWS SLUGS
+SLUMS SLUNK SLURP SLUSH SMITE SNAGS SNAPS SNARK SNIPS SNUBS SNUCK SNUGS SOAPS SOARS SOCKS SOFAS
+SOFTY SOILS SOLED SONGS SORTS SOUKS SOULS SOUND SOUPS SOWED SOWER SPANS SPECS SPIED SPIEL SPIES
+SPIKE SPOTS SPURN SPURS STABS STAGS STARS STAYS STEED STEMS STEPS STEWS STILE STIRS STOPS STROP
+STUDS SUING SUITS SULKS SUMAC SWABS SWANS SWAPS SWILL SWOON SWORD TACKS TACKY TAILS TAKES TALES
+TALKS TAMED TAMER TANGS TANKS TAPES TARTS TASKS TAXES TEACH TEAMS TEARS TEDDY TEENS TEETH TELLS
+TEMPS TENDS TENOR TENTS TERMS TESTS TEXTS THUDS TICKS TIDES TIERS TILED TILES TILTS TIMED TIMES
+TINTS TIRES TOADS TOLLS TOMBS TONED TONER TONES TONGS TONIC TOOLS TOPAZ TORSO TOTEM TOURS TOWED
+TOWNS TRANS TRAPS TRAYS TREES TRIMS TRIPS TROTS TRUSS TUBES TUCKS TUNED TUNES TURFS TURNS TWIGS
+TWILL TWINS TYPED TYPES TYPOS UNITS UNWED URGED URGES USERS VASES VEILS VEINS VENOM VERBS VIDEO
+VIEWS VINES VIXEN VOLTS VOMIT VOTED VOTES VOWED WADED WAGED WAGES WAITS WAKED WAKES WALKS WALLS
+WANDS WANTS WARDS WARES WARNS WARPS WARTS WARTY WASPS WASTE WAVED WAVER WAVES WAXED WEEDS WEEKS
+WELLS WHIMS WHIPS WHISK WICKS WILES WILTS WIMPY WINDS WINES WINGS WINKS WIPED WIPER WIPES WIRED
+WIRES WOKEN WOMEN WORDS WORDY WORKS WORMS WORMY WRAPS YARDS YARNS YEARS YELLS YOKEL YOURS ZAPPY
+ZEROS ZINCS ZONES
+`;
+
+/* =====================================================================
+   Configuration
+   ===================================================================== */
+const WORD_LENGTH = 5;
+const MAX_GUESSES = 6;
+const STORAGE_KEY = 'wordlet_v2';
+const LEGACY_STORAGE_KEY = 'wordlet_v1';
+const DAILY_EPOCH_UTC = Date.UTC(2024, 0, 1);
+const DAILY_SEED = 20240101;
+const MS_PER_DAY = 86400000;
+const FLIP_MS = 500;
+const FLIP_STAGGER_MS = 250;
+const BOUNCE_STAGGER_MS = 100;
+const BOARD_MAX_WIDTH = 350;
+const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th'];
+const WIN_MESSAGES = ['Genius', 'Magnificent', 'Impressive', 'Splendid', 'Great', 'Phew'];
+const KEY_ROWS = ['QWERTYUIOP', 'ASDFGHJKL', ['ENTER', ...'ZXCVBNM', 'BACKSPACE']];
+const STATE_RANK = { absent: 1, present: 2, correct: 3 };
+const THEMES = ['system', 'light', 'dark'];
+const BACKSPACE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H7.07L2.4 12l4.66-7H22v14zm-11.59-2L14 13.41 17.59 17 19 15.59 15.41 12 19 8.41 17.59 7 14 10.59 10.41 7 9 8.41 12.59 12 9 15.59z"/></svg>';
+
+// Words ending in S that are singular, so they remain eligible as answers.
+const SINGULAR_S_WORDS = new Set([
+  'AEGIS', 'ALIAS', 'ATLAS', 'BASIS', 'BOGUS', 'BONUS', 'CHAOS', 'ETHOS', 'FOCUS', 'GENUS',
+  'HUMUS', 'KUDOS', 'LAPIS', 'LOCUS', 'LOTUS', 'MINUS', 'MUCUS', 'NEXUS', 'OASIS', 'PIOUS',
+  'SINUS', 'TORUS', 'VIRUS',
+]);
+const IRREGULAR_PLURALS = new Set(['ALGAE', 'CACTI', 'FUNGI', 'GEESE', 'MEDIA', 'PENCE', 'RADII', 'TEETH', 'WOMEN']);
+
+const parseWords = raw => [...new Set(raw.toUpperCase().split(/\s+/).filter(isWord))];
+
+function isWord(value) {
+  return typeof value === 'string' && /^[A-Z]{5}$/.test(value);
+}
+
+/** Plurals are accepted as guesses but never chosen as answers. */
+function isPlural(word) {
+  if (IRREGULAR_PLURALS.has(word)) return true;
+  return word.endsWith('S') && !word.endsWith('SS') && !SINGULAR_S_WORDS.has(word);
+}
+
+const ANSWER_CANDIDATES = parseWords(ANSWERS_RAW);
+const ANSWERS = ANSWER_CANDIDATES.filter(word => !isPlural(word));
+const VALID_GUESSES = new Set([...ANSWER_CANDIDATES, ...parseWords(EXTRA_RAW)]);
+
+/* =====================================================================
+   Game rules (pure functions)
+   ===================================================================== */
+
+/** Scores a guess: greens first, then yellows limited to unmatched letters. */
+function evaluate(guess, answer) {
+  const result = Array(WORD_LENGTH).fill('absent');
+  const unmatched = new Map();
+
+  for (let i = 0; i < WORD_LENGTH; i++) {
+    if (guess[i] === answer[i]) {
+      result[i] = 'correct';
+    } else {
+      unmatched.set(answer[i], (unmatched.get(answer[i]) || 0) + 1);
+    }
+  }
+
+  for (let i = 0; i < WORD_LENGTH; i++) {
+    const remaining = unmatched.get(guess[i]) || 0;
+    if (result[i] !== 'correct' && remaining > 0) {
+      result[i] = 'present';
+      unmatched.set(guess[i], remaining - 1);
+    }
+  }
+  return result;
+}
+
+const countLetter = (word, letter) => [...word].filter(c => c === letter).length;
+
+/** Returns why a guess breaks hard mode, or null if it is allowed. */
+function hardModeViolation(guess, guesses, results) {
+  for (let g = 0; g < guesses.length; g++) {
+    for (let i = 0; i < WORD_LENGTH; i++) {
+      if (results[g][i] === 'correct' && guess[i] !== guesses[g][i]) {
+        return `${ORDINALS[i]} letter must be ${guesses[g][i]}`;
+      }
+    }
+  }
+  for (let g = 0; g < guesses.length; g++) {
+    const revealed = new Map();
+    for (let i = 0; i < WORD_LENGTH; i++) {
+      if (results[g][i] !== 'absent') revealed.set(guesses[g][i], (revealed.get(guesses[g][i]) || 0) + 1);
+    }
+    for (const [letter, count] of revealed) {
+      if (countLetter(guess, letter) < count) return `Guess must contain ${letter}`;
+    }
+  }
+  return null;
+}
+
+function createGame(answer, extra = {}) {
+  return { answer, guesses: [], results: [], current: '', hardMode: false, ...extra };
+}
+
+function gameStatus(game) {
+  const last = game.results[game.results.length - 1];
+  if (last && last.every(s => s === 'correct')) return 'won';
+  return game.guesses.length >= MAX_GUESSES ? 'lost' : 'playing';
+}
+
+/* =====================================================================
+   Daily puzzle selection
+   ===================================================================== */
+function mulberry32(seed) {
+  let a = seed | 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle(items, seed) {
+  const random = mulberry32(seed);
+  const shuffled = items.slice();
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+const DAILY_ORDER = seededShuffle(ANSWERS, DAILY_SEED);
+
+/** Days since the epoch in the device's local calendar (UTC maths avoids DST drift). */
+function dayNumber(date = new Date()) {
+  const localMidnightUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((localMidnightUtc - DAILY_EPOCH_UTC) / MS_PER_DAY);
+}
+
+function dailyAnswer(day) {
+  const n = DAILY_ORDER.length;
+  return DAILY_ORDER[((day % n) + n) % n];
+}
+
+function randomAnswer(exclude) {
+  let word;
+  do {
+    word = ANSWERS[Math.floor(Math.random() * ANSWERS.length)];
+  } while (word === exclude && ANSWERS.length > 1);
+  return word;
+}
+
+function msUntilMidnight(now = new Date()) {
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now;
+}
+
+/* =====================================================================
+   Persistence
+   Only answers and guesses are stored; results and status are
+   recomputed on load so saved data can never disagree with the rules.
+   ===================================================================== */
+const isCount = n => Number.isInteger(n) && n >= 0;
+
+function createStats() {
+  return { played: 0, won: 0, streak: 0, maxStreak: 0, dist: Array(MAX_GUESSES).fill(0), lastWonDay: null };
+}
+
+function sanitizeStats(raw) {
+  const stats = createStats();
+  if (!raw || typeof raw !== 'object') return stats;
+  for (const key of ['played', 'won', 'streak', 'maxStreak']) {
+    if (isCount(raw[key])) stats[key] = raw[key];
+  }
+  if (Array.isArray(raw.dist)) stats.dist = stats.dist.map((_, i) => (isCount(raw.dist[i]) ? raw.dist[i] : 0));
+  if (Number.isInteger(raw.lastWonDay)) stats.lastWonDay = raw.lastWonDay;
+  return stats;
+}
+
+function sanitizeSettings(raw) {
+  const settings = { hardMode: false, theme: 'system', highContrast: false };
+  if (!raw || typeof raw !== 'object') return settings;
+  if (typeof raw.hardMode === 'boolean') settings.hardMode = raw.hardMode;
+  if (typeof raw.highContrast === 'boolean') settings.highContrast = raw.highContrast;
+  if (THEMES.includes(raw.theme)) settings.theme = raw.theme;
+  return settings;
+}
+
+function restoreGame(raw, extra = {}) {
+  if (!raw || !isWord(raw.answer)) return null;
+  const game = createGame(raw.answer, { hardMode: raw.hardMode === true, ...extra });
+  for (const guess of Array.isArray(raw.guesses) ? raw.guesses : []) {
+    if (!isWord(guess) || gameStatus(game) !== 'playing') break;
+    game.guesses.push(guess);
+    game.results.push(evaluate(guess, game.answer));
+  }
+  return game;
+}
+
+function readStorage(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key));
+  } catch {
+    return null;
+  }
+}
+
+/** Converts data saved by the first version of the game. */
+function migrateLegacy(legacy) {
+  if (!legacy || typeof legacy !== 'object') return null;
+  if (legacy.daily && legacy.daily.won && legacy.stats && legacy.stats.daily) {
+    legacy.stats.daily.lastWonDay = legacy.daily.dayNum;
+  }
+  let seenHelp = false;
+  try {
+    seenHelp = localStorage.getItem('wordlet_visited') === '1';
+  } catch {
+    // Storage unavailable: show the help again.
+  }
+  return { ...legacy, seenHelp };
+}
+
+function loadState() {
+  const saved = readStorage(STORAGE_KEY) || migrateLegacy(readStorage(LEGACY_STORAGE_KEY)) || {};
+  const today = dayNumber();
+  const savedDaily = saved.daily && saved.daily.dayNum === today ? restoreGame(saved.daily, { dayNum: today }) : null;
+  const stats = saved.stats || {};
+
+  return {
+    mode: saved.mode === 'unlimited' ? 'unlimited' : 'daily',
+    seenHelp: saved.seenHelp === true,
+    settings: sanitizeSettings(saved.settings),
+    stats: { daily: sanitizeStats(stats.daily), unlimited: sanitizeStats(stats.unlimited) },
+    games: {
+      daily: savedDaily || createGame(dailyAnswer(today), { dayNum: today }),
+      unlimited: restoreGame(saved.unlimited) || createGame(randomAnswer()),
+    },
+  };
+}
+
+function saveState() {
+  const { daily, unlimited } = state.games;
+  const data = {
+    version: 2,
+    mode: state.mode,
+    seenHelp: state.seenHelp,
+    settings: state.settings,
+    stats: state.stats,
+    daily: { dayNum: daily.dayNum, answer: daily.answer, guesses: daily.guesses, hardMode: daily.hardMode },
+    unlimited: { answer: unlimited.answer, guesses: unlimited.guesses, hardMode: unlimited.hardMode },
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // Storage unavailable (private mode, blocked site data): play continues unsaved.
+  }
+}
+
+/* =====================================================================
+   Stats
+   ===================================================================== */
+function recordResult(mode, game, won) {
+  const stats = state.stats[mode];
+  stats.played++;
+  if (won) {
+    stats.won++;
+    stats.dist[game.guesses.length - 1]++;
+  }
+  if (mode === 'daily') {
+    if (won) {
+      stats.streak = stats.lastWonDay === game.dayNum - 1 ? stats.streak + 1 : 1;
+      stats.lastWonDay = game.dayNum;
+    } else {
+      stats.streak = 0;
+    }
+  } else {
+    stats.streak = won ? stats.streak + 1 : 0;
+  }
+  stats.maxStreak = Math.max(stats.maxStreak, stats.streak);
+}
+
+/** A daily streak ends once a whole day passes without a win. */
+function expireDailyStreak(today) {
+  const stats = state.stats.daily;
+  if (stats.lastWonDay !== null && stats.lastWonDay < today - 1) stats.streak = 0;
+}
+
+/* =====================================================================
+   DOM helpers
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+
+const dom = {
+  board: $('board'),
+  boardWrap: $('board-wrap'),
+  keyboard: $('keyboard'),
+  toasts: $('toasts'),
+  announcer: $('announcer'),
+  puzzleNum: $('puzzle-num'),
+  newWord: $('new-word'),
+  modeButtons: document.querySelectorAll('[data-mode]'),
+  statsTabs: document.querySelectorAll('[data-stats-mode]'),
+  statsDialog: $('stats-dialog'),
+  statPlayed: $('stat-played'),
+  statWin: $('stat-win'),
+  statStreak: $('stat-streak'),
+  statMax: $('stat-max'),
+  dist: $('dist'),
+  resultAnswer: $('result-answer'),
+  countdown: $('countdown'),
+  countdownTimer: $('countdown-timer'),
+  share: $('share'),
+  hardMode: $('hard-mode'),
+  highContrast: $('high-contrast'),
+  theme: $('theme'),
+  dataTransfer: $('data-transfer'),
+  exportBtn: $('export'),
+  importBtn: $('import'),
+  themeColor: document.querySelector('meta[name="theme-color"]'),
+};
+
+function replayAnimation(element, className) {
+  element.classList.remove(className);
+  void element.offsetWidth; // restart the CSS animation
+  element.classList.add(className);
+  element.addEventListener('animationend', () => element.classList.remove(className), { once: true });
+}
+
+function toast(message, duration = 1500) {
+  const openToasts = document.querySelector('dialog[open] .toasts');
+  const node = document.createElement('div');
+  node.className = 'toast';
+  node.textContent = message;
+  (openToasts || dom.toasts).prepend(node);
+  setTimeout(() => {
+    node.classList.add('is-leaving');
+    setTimeout(() => node.remove(), 300);
+  }, duration);
+}
+
+function announce(message) {
+  dom.announcer.textContent = '';
+  setTimeout(() => { dom.announcer.textContent = message; }, 50);
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Clipboard API missing or blocked (common on file://): fall back below.
+  }
+  // Inside a modal dialog the rest of the page is inert, so the helper must live in the dialog.
+  const host = document.querySelector('dialog[open]') || document.body;
+  const helper = document.createElement('textarea');
+  helper.value = text;
+  helper.setAttribute('readonly', '');
+  helper.style.position = 'fixed';
+  helper.style.opacity = '0';
+  host.append(helper);
+  helper.select();
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch {
+    copied = false;
+  }
+  helper.remove();
+  return copied;
+}
+
+/* =====================================================================
+   Rendering
+   ===================================================================== */
+const currentGame = () => state.games[state.mode];
+
+function buildBoard() {
+  const rows = [];
+  for (let r = 0; r < MAX_GUESSES; r++) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', `Guess ${r + 1}`);
+    const tiles = [];
+    for (let c = 0; c < WORD_LENGTH; c++) {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.setAttribute('role', 'img');
+      row.append(tile);
+      tiles.push(tile);
+    }
+    dom.board.append(row);
+    rows.push({ element: row, tiles });
+  }
+  return rows;
+}
+
+function buildKeyboard() {
+  const buttons = new Map();
+  for (const keys of KEY_ROWS) {
+    const row = document.createElement('div');
+    row.className = 'kb-row';
+    for (const key of keys) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'key';
+      button.dataset.key = key;
+      if (key === 'ENTER') {
+        button.classList.add('key-wide');
+        button.textContent = 'Enter';
+      } else if (key === 'BACKSPACE') {
+        button.classList.add('key-wide');
+        button.innerHTML = BACKSPACE_ICON;
+        button.setAttribute('aria-label', 'Backspace');
+      } else {
+        button.textContent = key;
+        buttons.set(key, button);
+      }
+      row.append(button);
+    }
+    dom.keyboard.append(row);
+  }
+  return buttons;
+}
+
+function setTile(tile, letter, tileState) {
+  tile.textContent = letter;
+  if (tileState) tile.dataset.state = tileState;
+  else delete tile.dataset.state;
+  const revealed = tileState && tileState !== 'tbd';
+  tile.setAttribute('aria-label', letter ? (revealed ? `${letter}, ${tileState}` : letter) : 'empty');
+}
+
+function renderBoard() {
+  const game = currentGame();
+  boardRows.forEach(({ tiles }, r) => {
+    const word = game.guesses[r] || (r === game.guesses.length ? game.current : '');
+    const result = game.results[r];
+    tiles.forEach((tile, c) => {
+      const letter = word[c] || '';
+      setTile(tile, letter, result ? result[c] : letter ? 'tbd' : '');
+    });
+  });
+}
+
+function letterStates(game) {
+  const states = new Map();
+  game.guesses.forEach((word, r) => {
+    [...word].forEach((letter, i) => {
+      const next = game.results[r][i];
+      if (STATE_RANK[next] > (STATE_RANK[states.get(letter)] || 0)) states.set(letter, next);
+    });
+  });
+  return states;
+}
+
+function renderKeyboard() {
+  const states = letterStates(currentGame());
+  for (const [letter, button] of keyButtons) {
+    const keyState = states.get(letter);
+    if (keyState) button.dataset.state = keyState;
+    else delete button.dataset.state;
+    button.setAttribute('aria-label', keyState ? `${letter}, ${keyState}` : letter);
+  }
+}
+
+function renderMode() {
+  for (const button of dom.modeButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.mode === state.mode));
+  }
+  dom.newWord.hidden = state.mode !== 'unlimited';
+  dom.puzzleNum.textContent = `#${state.games.daily.dayNum}`;
+}
+
+function renderAll() {
+  renderMode();
+  renderBoard();
+  renderKeyboard();
+}
+
+function applyTheme() {
+  const { theme, highContrast } = state.settings;
+  const dark = theme === 'dark' || (theme === 'system' && darkQuery.matches);
+  const root = document.documentElement;
+  root.dataset.theme = dark ? 'dark' : 'light';
+  if (highContrast) root.dataset.contrast = 'high';
+  else delete root.dataset.contrast;
+  dom.themeColor.content = dark ? '#121213' : '#ffffff';
+}
+
+/** Sizes the board to the space left between header and keyboard. */
+function fitBoard(width, height) {
+  const boardWidth = Math.floor(Math.min(BOARD_MAX_WIDTH, width, (height * 5) / 6));
+  dom.board.style.setProperty('--board-w', `${Math.max(boardWidth, 150)}px`);
+}
+
+/* =====================================================================
+   Animations
+   ===================================================================== */
+async function revealRow(rowIndex, guess, result) {
+  const { tiles } = boardRows[rowIndex];
+  if (motionQuery.matches) {
+    tiles.forEach((tile, i) => setTile(tile, guess[i], result[i]));
+    return;
+  }
+  await Promise.all(tiles.map(async (tile, i) => {
+    await wait(i * FLIP_STAGGER_MS);
+    tile.classList.add('flip');
+    await wait(FLIP_MS / 2);
+    setTile(tile, guess[i], result[i]); // swap colors while the tile is edge-on
+    await wait(FLIP_MS / 2);
+    tile.classList.remove('flip');
+  }));
+}
+
+function bounceRow(rowIndex) {
+  boardRows[rowIndex].tiles.forEach((tile, i) => {
+    setTimeout(() => replayAnimation(tile, 'bounce'), i * BOUNCE_STAGGER_MS);
+  });
+}
+
+/* =====================================================================
+   Input & game flow
+   ===================================================================== */
+let busy = false;
+
+function handleKey(key) {
+  const game = currentGame();
+  if (busy || gameStatus(game) !== 'playing') return;
+
+  if (key === 'ENTER') {
+    submitGuess();
+  } else if (key === 'BACKSPACE') {
+    if (!game.current) return;
+    game.current = game.current.slice(0, -1);
+    renderBoard();
+  } else if (/^[A-Z]$/.test(key) && game.current.length < WORD_LENGTH) {
+    game.current += key;
+    renderBoard();
+    replayAnimation(boardRows[game.guesses.length].tiles[game.current.length - 1], 'pop');
+  }
+}
+
+async function submitGuess() {
+  const mode = state.mode;
+  const game = currentGame();
+  const guess = game.current;
+  const rowIndex = game.guesses.length;
+
+  let problem = null;
+  if (guess.length < WORD_LENGTH) problem = 'Not enough letters';
+  else if (!VALID_GUESSES.has(guess)) problem = 'Not in word list';
+  else if (game.hardMode) problem = hardModeViolation(guess, game.guesses, game.results);
+  if (problem) {
+    toast(problem);
+    replayAnimation(boardRows[rowIndex].element, 'shake');
+    return;
+  }
+
+  const result = evaluate(guess, game.answer);
+  game.guesses.push(guess);
+  game.results.push(result);
+  game.current = '';
+  const status = gameStatus(game);
+  // Record and save before animating so closing the page mid-reveal loses nothing.
+  if (status !== 'playing') recordResult(mode, game, status === 'won');
+  saveState();
+
+  busy = true;
+  try {
+    await revealRow(rowIndex, guess, result);
+  } finally {
+    busy = false;
+  }
+  renderKeyboard();
+  if (status !== 'playing') await finishGame(mode, game, status, rowIndex);
+}
+
+async function finishGame(mode, game, status, rowIndex) {
+  if (status === 'won') {
+    toast(WIN_MESSAGES[rowIndex]);
+    bounceRow(rowIndex);
+    announce(`Solved in ${rowIndex + 1}. The word was ${game.answer}.`);
+  } else {
+    toast(game.answer, 3000);
+    announce(`Out of guesses. The word was ${game.answer}.`);
+  }
+  await wait(status === 'won' ? 1800 : 2200);
+  if (state.mode === mode && !document.querySelector('dialog[open]')) openStats(mode);
+}
+
+function setMode(mode) {
+  if (busy || mode === state.mode) return;
+  state.mode = mode;
+  saveState();
+  renderAll();
+}
+
+function startNewUnlimitedGame() {
+  if (busy) return;
+  state.games.unlimited = createGame(randomAnswer(state.games.unlimited.answer), { hardMode: state.settings.hardMode });
+  saveState();
+  renderAll();
+}
+
+function checkForNewDay() {
+  const today = dayNumber();
+  if (busy || state.games.daily.dayNum === today) return;
+  state.games.daily = createGame(dailyAnswer(today), { dayNum: today, hardMode: state.settings.hardMode });
+  expireDailyStreak(today);
+  saveState();
+  renderAll();
+}
+
+/* =====================================================================
+   Dialogs
+   ===================================================================== */
+let statsMode = 'daily';
+let countdownTimer = null;
+
+function openDialog(dialog) {
+  if (!dialog.open) dialog.showModal();
+}
+
+function openStats(mode) {
+  statsMode = mode;
+  renderStats();
+  openDialog(dom.statsDialog);
+  clearInterval(countdownTimer);
+  updateCountdown();
+  countdownTimer = setInterval(updateCountdown, 1000);
+}
+
+function renderStats() {
+  for (const tab of dom.statsTabs) {
+    tab.setAttribute('aria-pressed', String(tab.dataset.statsMode === statsMode));
+  }
+  const stats = state.stats[statsMode];
+  const game = state.games[statsMode];
+  const status = gameStatus(game);
+
+  dom.statPlayed.textContent = stats.played;
+  dom.statWin.textContent = stats.played ? Math.round((100 * stats.won) / stats.played) : 0;
+  dom.statStreak.textContent = stats.streak;
+  dom.statMax.textContent = stats.maxStreak;
+
+  const largest = Math.max(1, ...stats.dist);
+  dom.dist.replaceChildren(...stats.dist.map((count, i) => {
+    const item = document.createElement('li');
+    const label = document.createElement('span');
+    label.className = 'dist-label';
+    label.textContent = i + 1;
+    const bar = document.createElement('span');
+    bar.className = 'dist-bar';
+    bar.classList.toggle('is-current', status === 'won' && game.guesses.length === i + 1);
+    bar.style.width = `${(count / largest) * 100}%`;
+    bar.textContent = count;
+    item.append(label, bar);
+    return item;
+  }));
+
+  dom.resultAnswer.hidden = status !== 'lost';
+  dom.resultAnswer.textContent = `The word was ${game.answer}`;
+  dom.countdown.hidden = statsMode !== 'daily' || status === 'playing';
+  dom.share.hidden = status === 'playing';
+}
+
+function updateCountdown() {
+  const totalSeconds = Math.max(0, Math.floor(msUntilMidnight() / 1000));
+  const parts = [Math.floor(totalSeconds / 3600), Math.floor((totalSeconds % 3600) / 60), totalSeconds % 60];
+  dom.countdownTimer.textContent = parts.map(n => String(n).padStart(2, '0')).join(':');
+  if (totalSeconds === 0) checkForNewDay();
+}
+
+function shareText(mode) {
+  const game = state.games[mode];
+  const { highContrast } = state.settings;
+  const dark = document.documentElement.dataset.theme === 'dark';
+  const squares = {
+    correct: highContrast ? '🟧' : '🟩',
+    present: highContrast ? '🟦' : '🟨',
+    absent: dark ? '⬛' : '⬜',
+  };
+  const label = mode === 'daily' ? `Wordlet #${game.dayNum}` : 'Wordlet Unlimited';
+  const score = gameStatus(game) === 'won' ? game.guesses.length : 'X';
+  const grid = game.results.map(row => row.map(s => squares[s]).join('')).join('\n');
+  return `${label} ${score}/${MAX_GUESSES}${game.hardMode ? '*' : ''}\n\n${grid}`;
+}
+
+function renderSettings() {
+  dom.hardMode.setAttribute('aria-checked', String(state.settings.hardMode));
+  dom.highContrast.setAttribute('aria-checked', String(state.settings.highContrast));
+  dom.theme.value = state.settings.theme;
+}
+
+function exportData() {
+  return JSON.stringify({ version: 2, settings: state.settings, stats: state.stats }, null, 2);
+}
+
+function importData(text) {
+  const data = JSON.parse(text);
+  if (!data || typeof data !== 'object' || !data.stats) throw new Error('Missing stats');
+  state.settings = sanitizeSettings(data.settings || state.settings);
+  state.stats = { daily: sanitizeStats(data.stats.daily), unlimited: sanitizeStats(data.stats.unlimited) };
+}
+
+/* =====================================================================
+   Event wiring
+   ===================================================================== */
+function bindEvents() {
+  document.addEventListener('keydown', event => {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
+    if (document.querySelector('dialog[open]')) return;
+    // Let Enter/Space activate whichever button has keyboard focus.
+    if (event.target instanceof HTMLButtonElement && (event.key === 'Enter' || event.key === ' ')) return;
+    const key = event.key.toUpperCase();
+    if (key === 'ENTER' || key === 'BACKSPACE' || /^[A-Z]$/.test(key)) {
+      event.preventDefault();
+      handleKey(key);
+    }
+  });
+
+  // Drop focus after mouse/touch presses so a later physical Enter submits the guess
+  // instead of re-pressing the last clicked button. Keyboard activation keeps focus.
+  document.addEventListener('click', event => {
+    const button = event.target.closest('button');
+    if (button && event.detail > 0) button.blur();
+  });
+
+  dom.keyboard.addEventListener('click', event => {
+    const button = event.target.closest('[data-key]');
+    if (button) handleKey(button.dataset.key);
+  });
+
+  for (const button of dom.modeButtons) {
+    button.addEventListener('click', () => setMode(button.dataset.mode));
+  }
+  dom.newWord.addEventListener('click', startNewUnlimitedGame);
+
+  for (const opener of document.querySelectorAll('[data-open]')) {
+    opener.addEventListener('click', () => {
+      const id = opener.dataset.open;
+      if (id === 'stats-dialog') return openStats(state.mode);
+      if (id === 'settings-dialog') renderSettings();
+      openDialog($(id));
+    });
+  }
+
+  for (const dialog of document.querySelectorAll('dialog')) {
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog || event.target.closest('[data-close]')) dialog.close();
+    });
+  }
+  dom.statsDialog.addEventListener('close', () => clearInterval(countdownTimer));
+
+  for (const tab of dom.statsTabs) {
+    tab.addEventListener('click', () => {
+      statsMode = tab.dataset.statsMode;
+      renderStats();
+    });
+  }
+
+  dom.share.addEventListener('click', async () => {
+    toast((await copyText(shareText(statsMode))) ? 'Copied to clipboard' : 'Could not copy');
+  });
+
+  dom.hardMode.addEventListener('click', () => {
+    const game = currentGame();
+    if (gameStatus(game) === 'playing' && game.guesses.length > 0) {
+      toast('Hard mode can only change before your first guess', 2500);
+      return;
+    }
+    state.settings.hardMode = !state.settings.hardMode;
+    for (const g of Object.values(state.games)) {
+      if (g.guesses.length === 0) g.hardMode = state.settings.hardMode;
+    }
+    saveState();
+    renderSettings();
+  });
+
+  dom.highContrast.addEventListener('click', () => {
+    state.settings.highContrast = !state.settings.highContrast;
+    saveState();
+    applyTheme();
+    renderSettings();
+  });
+
+  dom.theme.addEventListener('change', () => {
+    state.settings.theme = dom.theme.value;
+    saveState();
+    applyTheme();
+  });
+
+  dom.exportBtn.addEventListener('click', async () => {
+    dom.dataTransfer.value = exportData();
+    dom.dataTransfer.select();
+    toast((await copyText(dom.dataTransfer.value)) ? 'Exported and copied' : 'Exported: copy the text above');
+  });
+
+  dom.importBtn.addEventListener('click', () => {
+    const text = dom.dataTransfer.value.trim();
+    if (!text) return toast('Paste exported data first');
+    try {
+      importData(text);
+    } catch {
+      return toast('That doesn’t look like Wordlet data', 2500);
+    }
+    saveState();
+    applyTheme();
+    renderSettings();
+    renderAll();
+    toast('Stats imported');
+  });
+
+  if (darkQuery.addEventListener) darkQuery.addEventListener('change', applyTheme);
+  else darkQuery.addListener(applyTheme);
+
+  new ResizeObserver(([entry]) => fitBoard(entry.contentRect.width, entry.contentRect.height)).observe(dom.boardWrap);
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkForNewDay();
+  });
+  setInterval(checkForNewDay, 60000);
+}
+
+/* =====================================================================
+   Self-test: run selfTest() in the browser console
+   ===================================================================== */
+function selfTest() {
+  const scoring = [
+    ['ABBEY', 'BABES', 'PPCCA'],
+    ['SPEED', 'EERIE', 'PPAAA'],
+    ['CRANE', 'EERIE', 'AAPAC'],
+    ['SWEET', 'TEETH', 'PPCAA'],
+    ['HELLO', 'LLAMA', 'PPAAA'],
+    ['AABBB', 'BBBAA', 'PPCPP'],
+  ].map(([answer, guess, expected]) => {
+    const actual = evaluate(guess, answer).map(s => s[0].toUpperCase()).join('');
+    return { test: `${answer} / ${guess}`, expected, actual, pass: actual === expected };
+  });
+
+  const trace = evaluate('CRANE', 'TRACE');
+  const hard = [
+    ['TRAMP', '5th letter must be E'],
+    ['BRAKE', 'Guess must contain C'],
+    ['GRACE', null],
+  ].map(([guess, expected]) => {
+    const actual = hardModeViolation(guess, ['CRANE'], [trace]);
+    return { test: `hard mode ${guess}`, expected: String(expected), actual: String(actual), pass: actual === expected };
+  });
+
+  const days = [
+    [new Date(2024, 0, 1), 0],
+    [new Date(2024, 2, 31), 90], // day after DST starts in many regions
+    [new Date(2024, 10, 4), 308],
+  ].map(([date, expected]) => {
+    const actual = dayNumber(date);
+    return { test: `day ${date.toDateString()}`, expected: String(expected), actual: String(actual), pass: actual === expected };
+  });
+
+  const pluralAnswers = ANSWERS.filter(isPlural);
+  const plurals = [
+    { test: 'no plural answers', expected: '', actual: pluralAnswers.join(' '), pass: pluralAnswers.length === 0 },
+    ...['ACIDS', 'BOOKS', 'WOMEN'].map(word => {
+      const pass = VALID_GUESSES.has(word) && !ANSWERS.includes(word);
+      return { test: `${word} guessable, not an answer`, expected: 'true', actual: String(pass), pass };
+    }),
+  ];
+
+  const rows = [...scoring, ...hard, ...days, ...plurals];
+  console.table(rows);
+  const failed = rows.filter(r => !r.pass).length;
+  console.log(failed ? `${failed} test(s) failed` : `All ${rows.length} tests passed`);
+  return failed === 0;
+}
+window.selfTest = selfTest;
+
+/* =====================================================================
+   Start
+   ===================================================================== */
+const state = loadState();
+expireDailyStreak(state.games.daily.dayNum);
+const boardRows = buildBoard();
+const keyButtons = buildKeyboard();
+applyTheme();
+bindEvents();
+renderAll();
+
+if (!state.seenHelp) {
+  state.seenHelp = true;
+  saveState();
+  openDialog($('help-dialog'));
+}
+</script>
 </body>
 </html>
